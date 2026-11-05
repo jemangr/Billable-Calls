@@ -338,6 +338,7 @@ fun UpdateSection(d: Data) {
     var report by remember { mutableStateOf(false) }
     SectionCard(t("Ενημερώσεις και σφάλματα", "Updates and bugs"), "Billable Calls ${BuildConfig.VERSION_NAME}") {
         SwitchRow(t("Αυτόματος έλεγχος για νέα έκδοση", "Check for new versions"), d.settings.updateCheck) { v -> Store.settings { it.copy(updateCheck = v) } }
+        SwitchRow(t("Αναφορά σφάλματος με κούνημα", "Shake to report a bug"), d.settings.shakeReport, t("Κούνα δυνατά το κινητό για να ανοίξει η αναφορά.", "Shake the phone hard to open the report.")) { v -> Store.settings { it.copy(shakeReport = v) } }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = { scope.launch { val r = Updates.check(BuildConfig.VERSION_NAME); found = r; if (r == null) toast(ctx, t("Έχεις την τελευταία έκδοση.", "You have the latest version.")) } }) { Text(t("Έλεγχος τώρα", "Check now")) }
             OutlinedButton(onClick = { report = true }) { Text(t("Αναφορά σφάλματος", "Report a bug")) }
@@ -355,19 +356,66 @@ fun UpdateSection(d: Data) {
     if (report) ReportDialog { report = false }
 }
 
+/** A new version on GitHub: shown on the home screen, with «Install» right there. */
+@Composable
+fun UpdateDialog(r: Updates.Release, onDismiss: () -> Unit) {
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var progress by remember { mutableStateOf<Int?>(null) }
+    AlertDialog(onDismissRequest = { if (progress == null) onDismiss() }, title = { Text(t("Νέα έκδοση ${r.version}", "New version ${r.version}")) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (r.notes.isNotBlank()) Muted(r.notes.take(600))
+                progress?.let { Muted(t("Λήψη… $it%", "Downloading… $it%")) }
+            }
+        },
+        confirmButton = {
+            Button(enabled = progress == null, onClick = {
+                if (!Installer.canInstall(ctx)) { Installer.allowInstalls(ctx); return@Button }
+                scope.launch {
+                    progress = 0
+                    val f = Installer.download(ctx, r.apk) { p -> progress = p }
+                    progress = null
+                    if (f != null) { Installer.install(ctx, f); onDismiss() } else toast(ctx, t("Η λήψη απέτυχε.", "Download failed."))
+                }
+            }) { Text(t("Εγκατάσταση", "Install")) }
+        },
+        dismissButton = { TextButton(enabled = progress == null, onClick = onDismiss) { Text(t("Αργότερα", "Later")) } })
+}
+
 @Composable
 fun ReportDialog(onDismiss: () -> Unit) {
     val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
     var what by remember { mutableStateOf("") }
-    AlertDialog(onDismissRequest = onDismiss, title = { Text(t("Αναφορά σφάλματος", "Bug report")) },
+    var email by remember { mutableStateOf("") }
+    var sending by remember { mutableStateOf(false) }
+    var failed by remember { mutableStateOf(false) }
+    AlertDialog(onDismissRequest = { if (!sending) onDismiss() }, title = { Text(t("Αναφορά σφάλματος", "Bug report")) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(what, { what = it }, label = { Text(t("Τι έγινε;", "What happened?")) }, minLines = 3, modifier = Modifier.fillMaxWidth())
-                Muted(t("Μπαίνουν έκδοση, κινητό, ρυθμίσεις και τα τελευταία σφάλματα. Ποτέ αριθμοί, ονόματα ή σημειώσεις.", "It includes version, phone, settings and the last errors. Never numbers, names or notes."))
+                OutlinedTextField(email, { email = it }, label = { Text(t("Το email σου (προαιρετικό, για απάντηση)", "Your email (optional, for a reply)")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                Muted(t("Στέλνεται κατευθείαν, χωρίς το email σου αν δεν το γράψεις. Μπαίνουν έκδοση, κινητό, ρυθμίσεις και τα τελευταία σφάλματα. Ποτέ αριθμοί, ονόματα ή σημειώσεις.", "Sent directly, without your email unless you type it. It includes version, phone, settings and the last errors. Never numbers, names or notes."))
+                if (failed) Text(t("Δεν στάλθηκε (χωρίς internet;). Δοκίμασε ξανά ή στείλ' το από το email σου.", "Not sent (no internet?). Try again or send it from your email."), color = MaterialTheme.colorScheme.error)
             }
         },
-        confirmButton = { Button(onClick = { val tx = Report.text(ctx, what); if (!Report.email(ctx, tx)) Report.share(ctx, tx); onDismiss() }) { Text("Email") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(t("Άκυρο", "Cancel")) } })
+        confirmButton = {
+            Button(enabled = !sending, onClick = {
+                sending = true; failed = false
+                scope.launch {
+                    val ok = Report.send(Report.text(ctx, what), email)
+                    sending = false
+                    if (ok) { toast(ctx, t("Στάλθηκε. Ευχαριστώ!", "Sent. Thank you!")); onDismiss() } else failed = true
+                }
+            }) { Text(if (sending) t("Αποστολή…", "Sending…") else t("Αποστολή", "Send")) }
+        },
+        dismissButton = {
+            Row {
+                TextButton(enabled = !sending, onClick = { val tx = Report.text(ctx, what); if (!Report.email(ctx, tx)) Report.share(ctx, tx); onDismiss() }) { Text(t("Από το email μου", "From my email")) }
+                TextButton(enabled = !sending, onClick = onDismiss) { Text(t("Άκυρο", "Cancel")) }
+            }
+        })
 }
 
 @Composable
@@ -395,7 +443,7 @@ fun SettingsScreen() {
             BackupSection(d)
             UpdateSection(d)
             SectionCard(t("Απόρρητο", "Privacy")) {
-                Muted(t("Οι κλήσεις, οι εταιρείες και οι σημειώσεις μένουν μόνο στο κινητό σου (και στο Drive σου, αν το συνδέσεις). Δεν υπάρχει server, διαφημίσεις ή tracking.", "Calls, companies and notes stay only on your phone (and on your Drive, if you connect it). No server, no ads, no tracking."))
+                Muted(t("Οι κλήσεις, οι εταιρείες και οι σημειώσεις μένουν μόνο στο κινητό σου (και στο Drive σου, αν το συνδέσεις). Χωρίς διαφημίσεις ή tracking. Μόνο η αναφορά σφάλματος, όταν τη στείλεις, περνά από το platebit.app για να έρθει σε εμάς, και δεν κρατιέται εκεί.", "Calls, companies and notes stay only on your phone (and on your Drive, if you connect it). No ads, no tracking. Only a bug report, when you send it, goes through platebit.app to reach us, and is not kept there."))
             }
             androidx.compose.foundation.layout.Spacer(Modifier.padding(24.dp))
         }

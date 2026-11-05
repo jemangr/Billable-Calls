@@ -17,6 +17,27 @@ import java.util.Locale
 object Report {
     const val EMAIL = "info@3wsol.gr"
     const val SUBJECT = "Bug report Billable Calls"
+    /** The report goes straight to us through platebit.app (nothing kept there); the user's email only if they write it. */
+    const val ENDPOINT = "https://platebit.app/report.php"
+    const val APP = "billable-calls"
+
+    /** The JSON that goes to [ENDPOINT]. */
+    fun payload(text: String, email: String): String = org.json.JSONObject()
+        .put("app", APP).put("version", "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
+        .put("text", text).put("email", email.trim()).put("website", "").toString()
+
+    /** Sends the report directly, without the email app. True when it arrived. */
+    suspend fun send(text: String, email: String): Boolean = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        runCatching {
+            val c = java.net.URL(ENDPOINT).openConnection() as java.net.HttpURLConnection
+            try {
+                c.requestMethod = "POST"; c.doOutput = true; c.connectTimeout = 10_000; c.readTimeout = 15_000
+                c.setRequestProperty("Content-Type", "application/json; charset=utf-8")
+                c.outputStream.use { it.write(payload(text, email).toByteArray()) }
+                c.responseCode == 200 && c.inputStream.bufferedReader().readText().contains("\"ok\":true")
+            } finally { c.disconnect() }
+        }.getOrDefault(false)
+    }
 
     private val errors = ArrayDeque<String>()
 

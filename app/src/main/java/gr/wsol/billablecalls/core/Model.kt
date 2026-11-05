@@ -232,6 +232,8 @@ data class Settings(
     val autoBackup: Boolean = false,
     val lastBackup: Long = 0,
     val updateCheck: Boolean = true,
+    /** Shake the phone to open the bug report. */
+    val shakeReport: Boolean = true,
     val lastUpdateCheck: Long = 0,
     /** Calls before this moment are history: no cards and no reminders for them. */
     val since: Long = 0,

@@ -22,7 +22,6 @@ import gr.wsol.billablecalls.core.t
 import gr.wsol.billablecalls.sys.Alarms
 import gr.wsol.billablecalls.sys.CallSync
 import gr.wsol.billablecalls.sys.Files
-import gr.wsol.billablecalls.sys.Notify
 import gr.wsol.billablecalls.sys.Webhook
 import gr.wsol.billablecalls.ui.App
 import gr.wsol.billablecalls.ui.BillableTheme
@@ -35,6 +34,11 @@ import kotlinx.coroutines.launch
 class MainActivity : FragmentActivity() {
     private val locked = mutableStateOf(false)
     private var leftAt = 0L
+    /** A newer version found on GitHub: a dialog on the home screen with «Install». */
+    private val update = mutableStateOf<Updates.Release?>(null)
+    /** The bug report, opened by shaking the phone. */
+    private val report = mutableStateOf(false)
+    private val shake = gr.wsol.billablecalls.sys.Shake { if (Store.settings.shakeReport && !locked.value) report.value = true }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -48,13 +52,19 @@ class MainActivity : FragmentActivity() {
                         Text("🔒 Billable Calls", style = MaterialTheme.typography.headlineSmall)
                         Button(onClick = { unlock() }) { Text(t("Ξεκλείδωμα", "Unlock")) }
                     }
-                } else App(tab)
+                } else {
+                    App(tab)
+                    update.value?.let { r -> gr.wsol.billablecalls.ui.UpdateDialog(r) { update.value = null } }
+                    if (report.value) gr.wsol.billablecalls.ui.ReportDialog { report.value = false }
+                }
             }
         }
         if (locked.value) unlock()
     }
 
     override fun onStop() { super.onStop(); leftAt = System.currentTimeMillis() }
+
+    override fun onPause() { super.onPause(); shake.stop() }
 
     override fun onStart() {
         super.onStart()
@@ -73,6 +83,7 @@ class MainActivity : FragmentActivity() {
 
     override fun onResume() {
         super.onResume()
+        if (Store.settings.shakeReport) shake.start(this)
         if (!Store.settings.onboarded) return
         lifecycleScope.launch(Dispatchers.IO) {
             // a call that just ended gets its card here too, if the background job hasn't run yet
@@ -83,11 +94,10 @@ class MainActivity : FragmentActivity() {
             val s = Store.settings
             if ((s.listSource == "url" || s.listSource == "drive") && System.currentTimeMillis() - s.listSynced > 20 * 3600_000L) Files.loadList(this@MainActivity)
             // a new version on GitHub: a notification (at most every few hours; can be turned off)
-            if (BuildConfig.UPDATE_CHECK && s.updateCheck && System.currentTimeMillis() - s.lastUpdateCheck > Updates.EVERY_MS) {
+            // (at most every hour when the app is opened; the dialog shows on the home screen, with «Install»)
+            if (BuildConfig.UPDATE_CHECK && s.updateCheck && update.value == null && System.currentTimeMillis() - s.lastUpdateCheck > Updates.OPEN_EVERY_MS) {
                 Store.settings { it.copy(lastUpdateCheck = System.currentTimeMillis()) }
-                Updates.check(BuildConfig.VERSION_NAME)?.let { r ->
-                    Notify.info(this@MainActivity, 8, t("Νέα έκδοση ${r.version}", "New version ${r.version}"), t("Ρυθμίσεις → Ενημερώσεις → Εγκατάσταση.", "Settings → Updates → Install."))
-                }
+                Updates.check(BuildConfig.VERSION_NAME)?.let { r -> update.value = r }
             }
         }
     }

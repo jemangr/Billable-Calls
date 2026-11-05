@@ -1,3 +1,9 @@
+## Billable Calls 1.3.2
+
+- **Bug report sent directly:** «Send» delivers it without opening your email app, so your address isn't shown. You can add your email if you want a reply. «From my email» is still there.
+- **Shake to report:** shake the phone hard and the bug report opens (Settings → Updates and bugs, can be turned off).
+- **New version on the home screen:** when there is one, a dialog shows it with «Install», without going to Settings. Checked at most once an hour when you open the app.
+
 ## Billable Calls 1.3.1
 
 - **Fix:** the app closed when the daily Drive backup was turned on, or on screens that set up the background jobs (Android needs a network permission for a job that waits for the internet). It no longer closes, and the backup runs when there is a network.

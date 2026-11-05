@@ -20,6 +20,8 @@ object Updates {
     /** The APK of the latest release, under a fixed name. */
     const val APK = "https://github.com/jemangr/Billable-Calls/releases/latest/download/BillableCalls.apk"
     const val EVERY_MS = 6 * 60 * 60 * 1000L
+    /** When the app is opened: at most once an hour (GitHub allows 60 requests an hour without an account). */
+    const val OPEN_EVERY_MS = 60 * 60 * 1000L
 
     data class Release(val version: String, val notes: String, val apk: String, val page: String)
 

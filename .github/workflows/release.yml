@@ -1,0 +1,64 @@
+name: Release
+
+# Each new versionName (app/build.gradle.kts) on main builds the APK and publishes it as a
+# GitHub release v<versionName>. Can also be run by hand (Actions → Release → Run workflow).
+on:
+  push:
+    branches: [main]
+    paths: ['app/build.gradle.kts', '.github/workflows/release.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v5
+      # The release key, from the repository's secrets (Settings → Secrets and variables → Actions):
+      # RELEASE_KEYSTORE (the .jks in base64), RELEASE_STORE_PASSWORD, RELEASE_KEY_ALIAS, RELEASE_KEY_PASSWORD.
+      # Without it there is no release: an APK signed with a random CI key could never be updated.
+      - name: Release key
+        env:
+          KS: ${{ secrets.RELEASE_KEYSTORE }}
+        run: |
+          if [ -z "$KS" ]; then
+            echo "::error::RELEASE_KEYSTORE is not set. Add the 4 RELEASE_* secrets, then run this workflow again (Actions → Release → Run workflow)."
+            exit 1
+          fi
+          printf '%s' "$KS" | tr -d ' \r\n' | base64 -d > release.jks
+          printf 'storeFile=release.jks\n' > keystore.properties
+      - name: Tests
+        run: ./gradlew :app:testDebugUnitTest
+      - name: APK
+        id: apk
+        env:
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          v=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          ./gradlew :app:assembleRelease
+          cp app/build/outputs/apk/release/app-release.apk "BillableCalls-$v.apk"
+          # The same APK under a fixed name, for the README button and the app's update (releases/latest/download/BillableCalls.apk).
+          cp app/build/outputs/apk/release/app-release.apk BillableCalls.apk
+          cp app/build/outputs/mapping/release/mapping.txt "BillableCalls-$v-mapping.txt"
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.apk.outputs.version }}
+          name: Billable Calls ${{ steps.apk.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          files: |
+            BillableCalls-${{ steps.apk.outputs.version }}.apk
+            BillableCalls.apk
+            BillableCalls-${{ steps.apk.outputs.version }}-mapping.txt
+          body_path: docs/RELEASE.md
+          prerelease: false
+          make_latest: true

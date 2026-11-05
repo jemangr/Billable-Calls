@@ -10,6 +10,9 @@
     <!-- The card at the end of a call, over whatever is on screen (optional). -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- «On site» (optional): the last location Android already has, only when the card opens. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <!-- The «exempt from battery optimisation» question (the user answers in Android's dialog). -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
@@ -73,6 +76,12 @@
 
         <receiver android:name=".sys.AlarmReceiver" android:exported="false" />
         <receiver android:name=".sys.CardReceiver" android:exported="false" />
+        <!-- Ringing: the card before you answer (needs «display over other apps»). -->
+        <receiver android:name=".sys.PhoneStateReceiver" android:exported="true" android:permission="android.permission.READ_PHONE_STATE">
+            <intent-filter>
+                <action android:name="android.intent.action.PHONE_STATE" />
+            </intent-filter>
+        </receiver>
         <receiver android:name=".sys.BootReceiver" android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />

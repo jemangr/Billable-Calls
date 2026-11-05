@@ -159,3 +159,36 @@ fun CompanyPicker(companies: List<Company>, selected: String?, suggestions: List
 
 @Composable
 fun Muted(text: String, modifier: Modifier = Modifier) = Text(text, modifier, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+/** «When to remind»: none, in an hour, tomorrow 10:00, or a date and time. */
+@Composable
+fun ReminderPicker(at: Long?, onPick: (Long?) -> Unit) {
+    var date by remember { mutableStateOf(false) }
+    var day by remember { mutableStateOf<Long?>(null) }
+    val now = System.currentTimeMillis()
+    val tomorrow10 = java.time.LocalDate.now().plusDays(1).atTime(10, 0).atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FilterChip(at == null, { onPick(null) }, label = { Text(t("Χωρίς υπενθύμιση", "No reminder")) })
+        FilterChip(false, { onPick(now + 3600_000L) }, label = { Text(t("Σε 1 ώρα", "In 1 hour")) })
+        FilterChip(false, { onPick(tomorrow10) }, label = { Text(t("Αύριο 10:00", "Tomorrow 10:00")) })
+        FilterChip(false, { date = true }, label = { Text(t("Ημερομηνία…", "Date…")) })
+    }
+    at?.let { Muted("⏰ " + SimpleDateFormat("EEE dd/MM/yyyy HH:mm", if (gr.wsol.billablecalls.core.Lang.english) Locale.UK else Locale("el")).format(Date(it))) }
+    if (date) {
+        val st = androidx.compose.material3.rememberDatePickerState(initialSelectedDateMillis = (at ?: now))
+        androidx.compose.material3.DatePickerDialog(onDismissRequest = { date = false },
+            confirmButton = { TextButton(onClick = { day = st.selectedDateMillis; date = false }) { Text("OK") } },
+            dismissButton = { TextButton(onClick = { date = false }) { Text(t("Άκυρο", "Cancel")) } }) { androidx.compose.material3.DatePicker(st) }
+    }
+    day?.let { d0 ->
+        val ts = rememberTimePickerState(10, 0, is24Hour = true)
+        AlertDialog(onDismissRequest = { day = null },
+            confirmButton = { TextButton(onClick = {
+                // the picker gives the day at 00:00 UTC
+                val ld = java.time.Instant.ofEpochMilli(d0).atZone(java.time.ZoneOffset.UTC).toLocalDate()
+                onPick(ld.atTime(ts.hour, ts.minute).atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()); day = null
+            }) { Text("OK") } },
+            dismissButton = { TextButton(onClick = { day = null }) { Text(t("Άκυρο", "Cancel")) } },
+            text = { TimePicker(ts) })
+    }
+}

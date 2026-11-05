@@ -149,13 +149,16 @@ fun CompaniesScreen(onOpen: (String) -> Unit) {
 fun CompanyScreen(id: String, onCall: (Long) -> Unit, onBack: () -> Unit) {
     BackHandler { onBack() }
     val d by Store.flow.collectAsState()
+    val ctx = LocalContext.current
     val c = d.company(id) ?: run { androidx.compose.runtime.LaunchedEffect(id) { onBack() }; return }
     var rename by remember { mutableStateOf(false) }
     var alias by remember { mutableStateOf(false) }
     var remove by remember { mutableStateOf(false) }
     var export by remember { mutableStateOf(false) }
     var range by rememberSaveable { mutableStateOf(Range.MONTH) }
-    val calls = d.calls.filter { it.companyId == id && range.period().contains(it.start) }.sortedByDescending { it.start }
+    var openOnly by rememberSaveable { mutableStateOf(false) }
+    val calls = d.calls.filter { it.companyId == id && range.period().contains(it.start) && (!openOnly || it.doneAt == null) }.sortedByDescending { it.start }
+    val tasks = d.followUps.filter { it.companyId == id && it.doneAt == null }
     LazyColumn(Modifier.fillMaxSize()) {
         item {
             Title(c.name, onBack) { TextButton(onClick = { export = true }) { Text("Export") } }
@@ -173,6 +176,17 @@ fun CompanyScreen(id: String, onCall: (Long) -> Unit, onBack: () -> Unit) {
                 Text(t("Στρογγύλεμα προς τα πάνω", "Round up to"), style = MaterialTheme.typography.titleSmall)
                 RoundPicker(c.roundMin, general = true) { v -> Store.update { Ops.saveCompany(it, c.copy(roundMin = v)) } }
             }
+            if (d.settings.onsiteOn && d.settings.onsiteAuto) SectionCard(t("Τοποθεσία (για «επιτόπια»)", "Location (for «on site»)"), if (c.lat != null) t("✓ Αποθηκευμένη. Κλήσεις ως 300 μ. από εδώ προτείνονται ως επιτόπιες.", "✓ Saved. Calls within 300 m of it are suggested as on site.") else t("Πάτα όταν είσαι στον πελάτη.", "Tap when you're at the customer's.")) {
+                val askLoc = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions()) { }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = {
+                        if (!gr.wsol.billablecalls.sys.Place.allowed(ctx)) askLoc.launch(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION))
+                        else gr.wsol.billablecalls.sys.Place.last(ctx)?.let { l -> Store.update { Ops.saveCompany(it, c.copy(lat = l.latitude, lng = l.longitude)) } }
+                            ?: toast(ctx, t("Δεν υπάρχει πρόσφατη τοποθεσία. Άνοιξε για λίγο τους χάρτες και ξαναπάτα.", "No recent location. Open the maps for a moment and tap again."))
+                    }) { Text(t("📍 Είμαι εδώ τώρα", "📍 I'm here now")) }
+                    if (c.lat != null) TextButton(onClick = { Store.update { Ops.saveCompany(it, c.copy(lat = null, lng = null)) } }) { Text(t("Διαγραφή", "Clear")) }
+                }
+            }
             if (d.settings.packagesOn) SectionCard(t("Συμβόλαιο: ώρες τον μήνα", "Contract: hours per month"), t("Ο χρεώσιμος χρόνος αφαιρείται από το πακέτο· ειδοποίηση όταν ξεπεραστεί.", "Billable time comes off the package; a notification when it's exceeded.")) {
                 Presets(listOf(0, 2, 5, 10, 20), (c.packageMin ?: 0) / 60, { if (it == 0) t("Χωρίς", "None") else t("$it ώρ.", "${it}h") }, t("Ώρες", "Hours")) { h ->
                     Store.update { Ops.saveCompany(it, c.copy(packageMin = (h * 60).takeIf { m -> m > 0 })) }
@@ -186,9 +200,22 @@ fun CompanyScreen(id: String, onCall: (Long) -> Unit, onBack: () -> Unit) {
             Row(Modifier.padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 listOf(Range.MONTH, Range.LAST_MONTH, Range.ALL).forEach { r -> FilterChip(range == r, { range = r }, label = { Text(r.label()) }) }
             }
-            Muted(t("${calls.size} κλήσεις · χρεώσιμος χρόνος ", "${calls.size} calls · billable ") + Billing.nice(calls.sumOf { Billing.seconds(it, d) }), Modifier.padding(16.dp, 4.dp))
+            if (tasks.isNotEmpty()) Text(t("Ενέργειες", "Actions"), Modifier.padding(16.dp, 8.dp, 16.dp, 0.dp), style = MaterialTheme.typography.titleMedium)
         }
-        items(calls, key = { it.id }) { cl -> CallRow(cl, d, false, onClick = { onCall(cl.id) }, onLong = { onCall(cl.id) }) }
+        items(tasks, key = { "f" + it.id }) { f -> FollowUpRow(f) }
+        item {
+            Row(Modifier.padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                FilterChip(!openOnly, { openOnly = false }, label = { Text(t("Όλες", "All")) })
+                FilterChip(openOnly, { openOnly = true }, label = { Text(t("Ανοιχτές", "Open")) })
+            }
+            Muted(t("${calls.size} καταγραφές · χρεώσιμος χρόνος ", "${calls.size} records · billable ") + Billing.nice(calls.sumOf { Billing.seconds(it, d) }) + t(" · ✓ = ολοκληρώθηκε", " · ✓ = completed"), Modifier.padding(16.dp, 4.dp))
+        }
+        items(calls, key = { it.id }) { cl ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                androidx.compose.material3.Checkbox(cl.doneAt != null, { v -> Store.update { Ops.callDone(it, cl.id, v) } })
+                Box(Modifier.weight(1f)) { CallRow(cl, d, false, onClick = { onCall(cl.id) }, onLong = { onCall(cl.id) }) }
+            }
+        }
         item {
             OutlinedButton(onClick = { remove = true }, modifier = Modifier.padding(16.dp)) { Text(t("Αφαίρεση εταιρείας", "Remove company"), color = MaterialTheme.colorScheme.error) }
         }
@@ -237,7 +264,7 @@ fun ExportDialog(company: Company?, start: Range = Range.MONTH, onDismiss: () ->
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Choice(listOf(Range.TODAY, Range.WEEK, Range.MONTH, Range.LAST_MONTH, Range.ALL).map { it to it.label() }, range) { range = it }
-                Choice(listOf(Format.XLSX to "Excel", Format.CSV to "CSV", Format.PDF to "PDF"), fmt) { fmt = it }
+                Choice(listOf(Format.XLSX to "Excel", Format.CSV to "CSV", Format.PDF to "PDF", Format.HTML to t("HTML για τον πελάτη", "HTML for the client")), fmt) { fmt = it }
                 if (d.settings.billedOn) {
                     SwitchRow(t("Μόνο μη τιμολογημένες", "Only not invoiced"), unbilled) { unbilled = it }
                     SwitchRow(t("Σημείωσέ τες «τιμολογήθηκαν»", "Mark them «invoiced»"), mark) { mark = it }
@@ -281,6 +308,32 @@ fun ExportDialog(company: Company?, start: Range = Range.MONTH, onDismiss: () ->
         })
 }
 
+/** One action (to do), with ✓ done, its reminder, and remove. */
+@Composable
+fun FollowUpRow(f: gr.wsol.billablecalls.core.FollowUp) {
+    val d by Store.flow.collectAsState()
+    val ctx = LocalContext.current
+    var edit by remember { mutableStateOf(false) }
+    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        androidx.compose.material3.Checkbox(f.doneAt != null, { v -> Store.update { Ops.followUpDone(it, f.id, v) }; gr.wsol.billablecalls.sys.Alarms.schedule(ctx) })
+        Column(Modifier.weight(1f).clickable { edit = true }) {
+            Text(f.text.ifBlank { t("(χωρίς κείμενο)", "(no text)") }, fontWeight = FontWeight.SemiBold,
+                textDecoration = if (f.doneAt != null) androidx.compose.ui.text.style.TextDecoration.LineThrough else null)
+            Muted(listOfNotNull(d.company(f.companyId)?.name ?: f.label.takeIf { it.isNotBlank() }, f.at?.let { "⏰ " + dayHm(it) }, f.doneAt?.let { t("ολοκληρώθηκε ", "done ") + dayHm(it) }).joinToString(" · "))
+        }
+        TextButton(onClick = { Store.update { Ops.removeFollowUp(it, f.id) }; gr.wsol.billablecalls.sys.Alarms.schedule(ctx) }) { Text("✕") }
+    }
+    HorizontalDivider()
+    if (edit) {
+        var text by remember { mutableStateOf(f.text) }
+        var at by remember { mutableStateOf(f.at) }
+        AlertDialog(onDismissRequest = { edit = false }, title = { Text(t("Ενέργεια", "Action")) },
+            text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { OutlinedTextField(text, { text = it }, modifier = Modifier.fillMaxWidth()); ReminderPicker(at) { at = it } } },
+            confirmButton = { TextButton(onClick = { Store.update { Ops.addFollowUp(it, f.copy(text = text.trim(), at = at, notified = at == f.at && f.notified)) }; gr.wsol.billablecalls.sys.Alarms.schedule(ctx); edit = false }) { Text("OK") } },
+            dismissButton = { TextButton(onClick = { edit = false }) { Text(t("Άκυρο", "Cancel")) } })
+    }
+}
+
 /** The missed calls with a reminder: call, later, ignore; and the ones that stopped (and why). */
 @Composable
 fun MissedScreen() {
@@ -288,9 +341,20 @@ fun MissedScreen() {
     val ctx = LocalContext.current
     val active = d.reminders.filter { !it.stopped }.sortedByDescending { it.callStart }
     val done = d.reminders.filter { it.stopped }.sortedByDescending { it.stoppedAt ?: 0 }.take(30)
+    var showDone by rememberSaveable { mutableStateOf(false) }
+    val tasks = d.followUps.filter { showDone || it.doneAt == null }.sortedWith(compareBy({ it.doneAt != null }, { it.at ?: Long.MAX_VALUE }, { -it.created }))
     LazyColumn(Modifier.fillMaxSize()) {
         item {
-            Title(t("Αναπάντητες", "Missed"))
+            Title(t("Εκκρεμή", "To do"))
+            Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(t("Ενέργειες", "Actions"), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                FilterChip(showDone, { showDone = !showDone }, label = { Text(t("και ολοκληρωμένες", "with completed")) })
+            }
+            if (tasks.isEmpty()) Muted(t("Καμία ενέργεια. Στην κάρτα της κλήσης: «Απαιτείται ενέργεια / υπενθύμιση».", "No actions. On the call's card: «Action needed / reminder»."), Modifier.padding(16.dp, 4.dp))
+        }
+        items(tasks, key = { "f" + it.id }) { f -> FollowUpRow(f) }
+        item {
+            Text(t("Αναπάντητες", "Missed"), Modifier.padding(16.dp, 16.dp, 16.dp, 4.dp), style = MaterialTheme.typography.titleMedium)
             if (active.isEmpty()) Muted(t("Καμία αναπάντητη δεν περιμένει.", "No missed call is waiting."), Modifier.padding(16.dp))
         }
         items(active, key = { "a" + it.key }) { r ->

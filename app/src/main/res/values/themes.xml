@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.Billable" parent="android:Theme.Material.Light.NoActionBar">
+    <style name="Theme.Billable" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowBackground">@color/bg</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>
-    <style name="Theme.Billable.Card" parent="android:Theme.Material.Light.Dialog.NoActionBar">
+    <style name="Theme.Billable.Card" parent="android:Theme.Material.Dialog.NoActionBar">
         <item name="android:windowBackground">@android:color/transparent</item>
         <item name="android:windowIsTranslucent">true</item>
         <item name="android:backgroundDimEnabled">true</item>
         <item name="android:windowCloseOnTouchOutside">false</item>
     </style>
-    <color name="bg">#F6F7FB</color>
+    <color name="bg">#000000</color>
     <color name="brand">#1F5EFF</color>
 </resources>

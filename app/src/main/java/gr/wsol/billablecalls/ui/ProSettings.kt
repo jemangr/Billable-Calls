@@ -94,6 +94,16 @@ fun ProSection(d: Data) {
             day(t("Σάββατο", "Saturday"), w.saturday) { x -> set { it.copy(workHours = it.workHours.copy(saturday = x)) } }
             day(t("Κυριακή", "Sunday"), w.sunday) { x -> set { it.copy(workHours = it.workHours.copy(sunday = x)) } }
         }
+        SwitchRow(t("Συνένωση διαδοχικών κλήσεων", "Join back-to-back calls"), s.mergeOn, t("Ίδιος αριθμός ή εταιρεία μέσα σε ${s.mergeMin}′: η κάρτα προτείνει να χρεωθούν μαζί, με ένα στρογγύλεμα.", "Same number or company within ${s.mergeMin}′: the card offers to bill them together, rounded once.")) { v -> set { it.copy(mergeOn = v) } }
+        if (s.mergeOn) Choice(listOf(10 to "10′", 15 to "15′", 20 to "20′", 30 to "30′"), s.mergeMin) { v -> set { it.copy(mergeMin = v) } }
+        SwitchRow(t("Επιτόπια εργασία", "On-site work"), s.onsiteOn, t("Διακόπτης «Επιτόπια» στην κάρτα, χρέωση ×${s.onsiteFactor} (📍).", "An «On site» switch on the card, billed ×${s.onsiteFactor} (📍).")) { v -> set { it.copy(onsiteOn = v) } }
+        if (s.onsiteOn) {
+            Choice(listOf(1.0 to "×1", 1.25 to "×1.25", 1.5 to "×1.5", 2.0 to "×2"), s.onsiteFactor) { v -> set { it.copy(onsiteFactor = v) } }
+            val askLoc = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { r -> if (r.values.any { it }) set { it.copy(onsiteAuto = true) } }
+            SwitchRow(t("Αυτόματα από την τοποθεσία", "Automatically from the location"), s.onsiteAuto, t("Αν το κινητό είναι ως 300 μ. από την τοποθεσία της εταιρείας (στην εταιρεία: «📍 Είμαι εδώ τώρα»). Μόνο η τελευταία γνωστή θέση, όταν ανοίγει η κάρτα.", "If the phone is within 300 m of the company's place (in the company: «📍 I'm here now»). Only the last known position, when the card opens.")) { v ->
+                if (v && !gr.wsol.billablecalls.sys.Place.allowed(ctx)) askLoc.launch(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION)) else set { it.copy(onsiteAuto = v) }
+            }
+        }
         SwitchRow(t("Τιμολογημένες κλήσεις", "Invoiced calls"), s.billedOn, t("Στο export: «μόνο μη τιμολογημένες» και σήμανση «τιμολογήθηκαν» (🧾).", "In the export: «only not invoiced» and mark «invoiced» (🧾).")) { v -> set { it.copy(billedOn = v) } }
         SwitchRow(t("PDF ως timesheet", "PDF as a timesheet"), s.timesheetOn, t("Με το λογότυπο και τα στοιχεία σου επάνω.", "With your logo and details on top.")) { v -> set { it.copy(timesheetOn = v) } }
         if (s.timesheetOn) FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

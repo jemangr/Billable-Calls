@@ -39,7 +39,7 @@ class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        val tab = if (intent?.getStringExtra("tab") == "missed") Tab.MISSED else Tab.TODAY
+        val tab = if (intent?.getStringExtra("tab") in setOf("missed", "todo")) Tab.MISSED else Tab.TODAY
         locked.value = Store.settings.lockOn && savedInstanceState == null
         setContent {
             BillableTheme {

@@ -14,6 +14,9 @@ data class Company(
     val roundMin: Int? = null,
     /** A support contract: minutes included per month (null = none). */
     val packageMin: Int? = null,
+    /** Where the company is (for «on site» from the phone's location). */
+    val lat: Double? = null,
+    val lng: Double? = null,
     /** "list" (from the customer list) or "manual". */
     val source: String = "manual",
 )
@@ -56,12 +59,36 @@ data class Call(
     val reviewed: Boolean = false,
     /** When it was marked as invoiced (null = not yet). */
     val billedAt: Long? = null,
+    /** When the record was marked «completed» (null = open). */
+    val doneAt: Long? = null,
+    /** Joined to an earlier call of the same support (its id): billed as one, with that one. */
+    val mergedInto: Long? = null,
+    /** On site (at the customer's): billed × the on-site factor (when on). */
+    val onsite: Boolean = false,
 ) {
     val end: Long get() = start + durationSec * 1000L
     val answered: Boolean get() = (direction == Direction.IN || direction == Direction.OUT) && durationSec > 0
     val business: Boolean get() = companyId != null && !personal
     val label: String get() = contact?.takeIf { it.isNotBlank() } ?: number
 }
+
+/** A reminder you set yourself (from the after-call card): at a date and time, about a company. */
+@Serializable
+data class FollowUp(
+    val id: String,
+    val companyId: String? = null,
+    val callId: Long? = null,
+    /** To call back from the notification. */
+    val number: String? = null,
+    val label: String = "",
+    /** What has to be done («send an offer», «open port 443»). */
+    val text: String = "",
+    /** When to be reminded (null = no reminder, only on the to-do list). */
+    val at: Long? = null,
+    val notified: Boolean = false,
+    val doneAt: Long? = null,
+    val created: Long = 0,
+)
 
 /** Where the company of a number comes from: a choice that also counts for the next calls. */
 @Serializable
@@ -141,6 +168,8 @@ data class ReminderSettings(
 @Serializable
 data class Settings(
     val english: Boolean = false,
+    /** «dark» (black, the default), «light» or «system». */
+    val look: String = "dark",
     val onboarded: Boolean = false,
     val matchMode: MatchMode = MatchMode.BOTH,
     val namePosition: NamePosition = NamePosition.BEFORE,
@@ -151,6 +180,8 @@ data class Settings(
     val roundMin: Int = 15,
     val cardMode: CardMode = CardMode.ALL,
     val cardStyle: CardStyle = CardStyle.OVERLAY,
+    /** While it rings: a small card with the company, its package, last topics and open actions. */
+    val hudOn: Boolean = true,
     val instantCard: Boolean = false,
     /** The topic a new business call gets (and the card starts with); "" = none. */
     val defaultCategory: String = "Υποστήριξη",
@@ -181,6 +212,13 @@ data class Settings(
     val lockOn: Boolean = false,
     /** Greeklish counts as Greek when matching («Papadopoulos» = «Παπαδόπουλος»). */
     val greeklish: Boolean = true,
+    /** Calls of the same number within [mergeMin] minutes: the card offers to bill them as one. */
+    val mergeOn: Boolean = true,
+    val mergeMin: Int = 20,
+    /** On-site work: × [onsiteFactor]; with [onsiteAuto], from the phone's location near the company. */
+    val onsiteOn: Boolean = false,
+    val onsiteFactor: Double = 1.5,
+    val onsiteAuto: Boolean = false,
     val reminders: ReminderSettings = ReminderSettings(),
     val categories: List<String> = DEFAULT_CATEGORIES,
     /** Customer list: "file", "url", "drive" or "" (by hand). */
@@ -212,6 +250,7 @@ data class Data(
     val rules: List<NumberRule> = emptyList(),
     val reminders: List<Reminder> = emptyList(),
     val settings: Settings = Settings(),
+    val followUps: List<FollowUp> = emptyList(),
     /** Calls waiting to be sent to the webhook (sent again if it failed). */
     val pendingHooks: List<Long> = emptyList(),
     /** company id → the month («2026-11») its package alert was shown. */

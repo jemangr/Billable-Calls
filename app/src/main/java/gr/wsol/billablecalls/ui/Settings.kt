@@ -194,6 +194,7 @@ fun CardSection(d: Data) {
             Muted(t("Για να βγαίνει πάνω από την οθόνη, δώσε «Εμφάνιση πάνω από άλλες εφαρμογές». Αλλιώς βγαίνει ειδοποίηση.", "To open over the screen, allow «Display over other apps». Otherwise a notification opens it."))
             OutlinedButton(onClick = { Card.overlaySettings(ctx) }) { Text(t("Άδεια εμφάνισης", "Allow display")) }
         } else if (s.cardStyle == CardStyle.OVERLAY) Muted(t("✓ Βγαίνει πάνω από την οθόνη.", "✓ Opens over the screen."))
+        SwitchRow(t("Πριν απαντήσεις", "Before you answer"), s.hudOn, t("Όσο χτυπάει: εταιρεία, υπόλοιπο πακέτου, τελευταία θέματα και εκκρεμότητες. Θέλει την «Εμφάνιση πάνω από άλλες εφαρμογές».", "While it rings: company, package left, last topics and open actions. Needs «display over other apps».")) { v -> Store.settings { it.copy(hudOn = v) } }
         SwitchRow(t("Άμεση κάρτα", "Instant card"), s.instantCard, t("Με μόνιμη ειδοποίηση, για κινητά που καθυστερούν την κάρτα.", "With an ongoing notification, for phones that delay the card.")) { on ->
             Store.settings { it.copy(instantCard = on) }; if (on) InstantService.start(ctx) else InstantService.stop(ctx)
         }
@@ -377,6 +378,7 @@ fun SettingsScreen() {
         item {
             Title(t("Ρυθμίσεις", "Settings"))
             SectionCard(t("Γλώσσα", "Language")) { Choice(listOf(false to "Ελληνικά", true to "English"), d.settings.english) { v -> Store.settings { it.copy(english = v) } } }
+            SectionCard(t("Εμφάνιση", "Look")) { Choice(listOf("dark" to t("Μαύρη", "Black"), "light" to t("Ανοιχτή", "Light"), "system" to t("Όπως το κινητό", "As the phone")), d.settings.look) { v -> Store.settings { it.copy(look = v) } } }
             SectionCard("Export", t("Excel, CSV ή PDF, για όλες τις εταιρείες. Για μία: Εταιρείες → η εταιρεία → Export.", "Excel, CSV or PDF, for all companies. For one: Companies → the company → Export.")) {
                 Button(onClick = { export = true }) { Text(t("Export όλων", "Export all")) }
             }

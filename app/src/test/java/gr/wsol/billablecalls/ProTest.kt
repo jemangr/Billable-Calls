@@ -84,4 +84,33 @@ class ProTest {
         assertEquals(listOf(1L), Ops.review(d, 1, true, "a", false, "Υποστήριξη", null, "ok").pendingHooks)
         assertTrue(Ops.review(d.copy(settings = d.settings.copy(webhookOn = false)), 1, true, "a", false, null, null, null).pendingHooks.isEmpty())
     }
+
+    @Test fun backToBackCallsBilledAsOne() {
+        val s = Settings(roundMin = 15, minSec = 60, mergeOn = true, mergeMin = 20)
+        val first = call(1, ms(3, 10), 240, key = "111")
+        val second = call(2, first.end + 3 * 60_000, 180, key = "111")
+        var d = Data(companies = listOf(a), calls = listOf(first, second), settings = s)
+        assertEquals(1L, Billing.mergeCandidate(second, d)?.id)
+        assertEquals(1800, d.calls.sumOf { Billing.seconds(it, d) }) // apart: 15′ + 15′
+        d = Ops.merge(d, 2, 1)
+        assertEquals(900, Billing.seconds(d.calls[0], d)); assertEquals(0, Billing.seconds(d.calls[1], d)) // together: one 15′ block
+        // too late for the window: no offer
+        assertNull(Billing.mergeCandidate(call(3, first.end + 40 * 60_000, 60, key = "111"), d.copy(calls = listOf(first))))
+    }
+
+    @Test fun onSiteFactor() {
+        val s = Settings(roundMin = 15, onsiteOn = true, onsiteFactor = 2.0)
+        assertEquals(1800, Billing.seconds(call(1, ms(3, 10), 600).copy(onsite = true), a, s))
+        assertEquals(900, Billing.seconds(call(1, ms(3, 10), 600), a, s))
+    }
+
+    @Test fun beforeYouAnswer() {
+        val c = a.copy(packageMin = 300)
+        val d = Data(companies = listOf(c), settings = Settings(packagesOn = true),
+            calls = listOf(call(1, ms(3, 10), 600, key = "6971111111").copy(note = "Πρόβλημα με Exchange")),
+            followUps = listOf(gr.wsol.billablecalls.core.FollowUp("f", "a", 1, null, "", "Να στείλω προσφορά", null)))
+        val lines = gr.wsol.billablecalls.sys.Hud.lines(d, "+30 697 111 1111", "Νίκος", null)!!
+        assertTrue(lines[0].contains("ΑΒΓ")); assertTrue(lines.any { it.contains("Exchange") }); assertTrue(lines.any { it.contains("προσφορά") }); assertTrue(lines.any { it.contains("Πακέτο") })
+        assertNull(gr.wsol.billablecalls.sys.Hud.lines(d, "6999999999", null, null))
+    }
 }

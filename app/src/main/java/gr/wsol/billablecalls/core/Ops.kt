@@ -69,6 +69,17 @@ object Ops {
         return edit(d, call.id) { it.copy(category = if (business) category else it.category, billable = billable, note = note?.trim() ?: it.note, reviewed = true) }
     }
 
+    // ---- reminders you set, and «completed» ----
+    fun addFollowUp(d: Data, f: FollowUp) = d.copy(followUps = d.followUps.filterNot { it.id == f.id } + f)
+    fun followUpDone(d: Data, id: String, done: Boolean, now: Long = System.currentTimeMillis()) =
+        d.copy(followUps = d.followUps.map { if (it.id == id) it.copy(doneAt = if (done) now else null) else it })
+    fun removeFollowUp(d: Data, id: String) = d.copy(followUps = d.followUps.filterNot { it.id == id })
+    fun snoozeFollowUp(d: Data, id: String, at: Long) = d.copy(followUps = d.followUps.map { if (it.id == id) it.copy(at = at, notified = false) else it })
+    fun callDone(d: Data, id: Long, done: Boolean, now: Long = System.currentTimeMillis()) = edit(d, id) { it.copy(doneAt = if (done) now else null) }
+
+    /** Joins [id] to [into] (billed as one), or undoes it with null. */
+    fun merge(d: Data, id: Long, into: Long?) = edit(d, id) { it.copy(mergedInto = into) }
+
     /** The default topic for a new business call without one. */
     fun withDefaultTopic(c: Call, s: Settings): Call =
         if (c.business && c.category == null && s.defaultCategory.isNotBlank() && s.defaultCategory in s.categories) c.copy(category = s.defaultCategory) else c

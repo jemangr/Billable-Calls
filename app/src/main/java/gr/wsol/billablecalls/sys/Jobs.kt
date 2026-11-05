@@ -96,7 +96,10 @@ class InstantService : Service() {
         return START_STICKY
     }
 
+    private val ring = PhoneStateReceiver()
+
     private fun listen() {
+        runCatching { registerReceiver(ring, android.content.IntentFilter(android.telephony.TelephonyManager.ACTION_PHONE_STATE_CHANGED)) }
         if (callback != null || Build.VERSION.SDK_INT < 31) return
         if (!Perms.has(this, android.Manifest.permission.READ_PHONE_STATE)) return
         val tm = getSystemService(TelephonyManager::class.java)
@@ -113,6 +116,7 @@ class InstantService : Service() {
     }
 
     override fun onDestroy() {
+        runCatching { unregisterReceiver(ring) }
         callback?.let { runCatching { getSystemService(TelephonyManager::class.java).unregisterTelephonyCallback(it) } }
         super.onDestroy()
     }

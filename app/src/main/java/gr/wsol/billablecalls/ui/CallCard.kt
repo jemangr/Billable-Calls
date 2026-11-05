@@ -66,6 +66,13 @@ fun CallCardContent(callId: Long, counter: String? = null, onDone: () -> Unit) {
     var billable by remember(callId) { mutableStateOf(call.billable) }
     var note by remember(callId) { mutableStateOf(call.note) }
     var picking by remember(callId) { mutableStateOf(call.companyId == null) }
+    val mergeWith = remember(callId) { Billing.mergeCandidate(call, d) }
+    var merge by remember(callId) { mutableStateOf(call.mergedInto != null || mergeWith != null) }
+    var onsite by remember(callId) { mutableStateOf(call.onsite || d.settings.onsiteOn && d.settings.onsiteAuto && gr.wsol.billablecalls.sys.Place.near(ctx, d.company(call.companyId))) }
+    val open = d.followUps.firstOrNull { it.callId == callId && it.doneAt == null }
+    var todo by remember(callId) { mutableStateOf(open != null) }
+    var todoText by remember(callId) { mutableStateOf(open?.text.orEmpty()) }
+    var remindAt by remember(callId) { mutableStateOf(open?.at) }
 
     Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -127,10 +134,36 @@ fun CallCardContent(callId: Long, counter: String? = null, onDone: () -> Unit) {
                     runCatching { speak.launch(i) }.onFailure { toast(ctx, t("Δεν υπάρχει αναγνώριση φωνής σε αυτό το κινητό.", "No speech recognition on this phone.")) }
                 }) { androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Mic, t("Υπαγόρευση", "Dictate")) }
             })
+        if (business) {
+            // the same support in 2–3 calls: billed as one, rounded once
+            mergeWith?.let { prev ->
+                SwitchRow(t("Συνένωση με την προηγούμενη κλήση (${Billing.hms(prev.durationSec)}, ${hm(prev.start)})", "Join with the previous call (${Billing.hms(prev.durationSec)}, ${hm(prev.start)})"), merge,
+                    t("Χρεώνονται μαζί, με ένα στρογγύλεμα.", "Billed together, rounded once.")) { merge = it }
+            }
+            if (d.settings.onsiteOn) SwitchRow(t("Επιτόπια (στον πελάτη) ×${d.settings.onsiteFactor}", "On site (at the customer's) ×${d.settings.onsiteFactor}"), onsite) { onsite = it }
+            // something to do after the call, with an optional reminder (date and time)
+            SwitchRow(t("Απαιτείται ενέργεια / υπενθύμιση", "Action needed / reminder"), todo) { todo = it }
+            if (todo) {
+                OutlinedTextField(todoText, { todoText = it }, label = { Text(t("Τι πρέπει να γίνει;", "What has to be done?")) }, modifier = Modifier.fillMaxWidth())
+                ReminderPicker(remindAt) { remindAt = it }
+            }
+        }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
             OutlinedButton(onClick = { Store.update { Ops.edit(it, call.id) { c -> c.copy(reviewed = true) } }; onDone() }) { Text(t("Παράλειψη", "Skip")) }
             Spacer(Modifier.width(8.dp))
-            Button(onClick = { saveCard(call, business, companyId, forNumber, category, billable, note); gr.wsol.billablecalls.sys.Webhook.flushLater(ctx); onDone() }, enabled = !business || companyId != null) { Text(t("Αποθήκευση", "Save")) }
+            Button(onClick = {
+                saveCard(call, business, companyId, forNumber, category, billable, note)
+                if (business) Store.update { x ->
+                    var y = Ops.merge(x, call.id, if (merge) mergeWith?.id else null)
+                    y = Ops.edit(y, call.id) { it.copy(onsite = onsite) }
+                    if (todo && (todoText.isNotBlank() || remindAt != null)) y = Ops.addFollowUp(y, gr.wsol.billablecalls.core.FollowUp(
+                        Ops.newId(), companyId, call.id, call.number.takeIf { call.sim !in gr.wsol.billablecalls.core.Voip.APPS.values }, call.label,
+                        todoText.trim().ifBlank { note.trim() }, remindAt, created = System.currentTimeMillis()))
+                    y
+                }
+                gr.wsol.billablecalls.sys.Alarms.schedule(ctx)
+                gr.wsol.billablecalls.sys.Webhook.flushLater(ctx); onDone()
+            }, enabled = !business || companyId != null) { Text(t("Αποθήκευση", "Save")) }
         }
     }
 }

@@ -130,7 +130,8 @@ class BillingTest {
         val t = Settings(minSec = 60, roundMin = 15, categories = listOf("Υποστήριξη", "Άλλο"), billableCategories = listOf("Υποστήριξη"))
         assertEquals(15 * 60, Billing.seconds(call(240).copy(category = "Υποστήριξη"), c, t))
         assertEquals(0, Billing.seconds(call(240).copy(category = "Άλλο"), c, t))
-        assertEquals(0, Billing.seconds(call(240), c, t))
+        assertEquals(15 * 60, Billing.seconds(call(240), c, t)) // no topic: counts as the default («Υποστήριξη»)
+        assertEquals(0, Billing.seconds(call(240), c, t.copy(defaultCategory = "")))
         // a manual yes still wins
         assertEquals(15 * 60, Billing.seconds(call(240, billable = true).copy(category = "Άλλο"), c, t))
     }

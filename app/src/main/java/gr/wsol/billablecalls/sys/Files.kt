@@ -31,6 +31,7 @@ enum class Format(val ext: String, val mime: String) {
     XLSX("xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
     CSV("csv", "text/csv"),
     PDF("pdf", "application/pdf"),
+    HTML("html", "text/html"),
 }
 
 /** Exports, sharing, the customer list from a file or a link. */
@@ -41,6 +42,7 @@ object Files {
             Format.CSV -> Sheets.csv(Export.rows(d, calls, sims))
             Format.XLSX -> Sheets.xlsx(listOf(t("Κλήσεις", "Calls") to Export.rows(d, calls, sims), t("Σύνολα", "Totals") to Export.totalRows(d, calls)))
             Format.PDF -> Pdf.report(d, p, company, calls, logo = logo)
+            Format.HTML -> Html.report(d, p, company, calls)
         }
     }
 

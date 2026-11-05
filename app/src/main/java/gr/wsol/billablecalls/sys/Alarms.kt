@@ -62,7 +62,9 @@ object Alarms {
     fun nid(key: String) = 10_000 + (key.hashCode() and 0xFFFFF)
 
     fun schedule(context: Context) {
-        val next = Store.data.reminders.filter { !it.stopped && it.nextAt != Long.MAX_VALUE }.minOfOrNull { it.nextAt }
+        val d = Store.data
+        val next = (d.reminders.filter { !it.stopped && it.nextAt != Long.MAX_VALUE }.map { it.nextAt } +
+            d.followUps.filter { it.doneAt == null && !it.notified && it.at != null }.mapNotNull { it.at }).minOrNull()
         val am = context.getSystemService(AlarmManager::class.java)
         val pi = PendingIntent.getBroadcast(context, 1, Intent(context, AlarmReceiver::class.java).setAction(ACTION_RING), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         am.cancel(pi)
@@ -82,6 +84,41 @@ object Alarms {
             })
         }
         due.forEach { show(context, it) }
+        // the reminders you set from the card
+        val follow = Store.data.followUps.filter { it.doneAt == null && !it.notified && it.at != null && it.at <= now + 30_000 }
+        if (follow.isNotEmpty()) {
+            Store.update { d -> d.copy(followUps = d.followUps.map { f -> if (follow.any { it.id == f.id }) f.copy(notified = true) else f }) }
+            follow.forEach { showFollowUp(context, it) }
+        }
+        schedule(context)
+    }
+
+    const val ACTION_F_DONE = "gr.wsol.billablecalls.F_DONE"
+    const val ACTION_F_LATER = "gr.wsol.billablecalls.F_LATER"
+    fun fid(id: String) = 40_000 + (id.hashCode() and 0xFFFF)
+
+    private fun showFollowUp(context: Context, f: gr.wsol.billablecalls.core.FollowUp) {
+        val d = Store.data
+        val who = d.company(f.companyId)?.name ?: f.label
+        fun act(action: String, code: Int) = PendingIntent.getBroadcast(context, fid(f.id) + code, Intent(context, AlarmReceiver::class.java).setAction(action).putExtra("f", f.id), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        val open = PendingIntent.getActivity(context, fid(f.id), Intent(context, MainActivity::class.java).putExtra("tab", "todo"), PendingIntent.FLAG_IMMUTABLE)
+        val b = NotificationCompat.Builder(context, Notify.REMINDERS).setSmallIcon(R.drawable.ic_stat)
+            .setContentTitle("⏰ $who").setContentText(f.text.ifBlank { t("Υπενθύμιση", "Reminder") }).setStyle(NotificationCompat.BigTextStyle().bigText(f.text.ifBlank { t("Υπενθύμιση", "Reminder") }))
+            .setContentIntent(open).setAutoCancel(true).setCategory(NotificationCompat.CATEGORY_REMINDER)
+        f.number?.let { n -> b.addAction(0, t("Κάλεσε", "Call"), PendingIntent.getActivity(context, fid(f.id) + 1, Intent(context, DialActivity::class.java).putExtra("number", n), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)) }
+        b.addAction(0, t("Ολοκληρώθηκε", "Done"), act(ACTION_F_DONE, 2))
+        b.addAction(0, t("Αργότερα", "Later"), act(ACTION_F_LATER, 3))
+        Notify.post(context, fid(f.id), b.build())
+    }
+
+    fun followUpAct(context: Context, action: String, id: String) {
+        Store.init(context)
+        Notify.cancel(context, fid(id))
+        val now = System.currentTimeMillis()
+        when (action) {
+            ACTION_F_DONE -> Store.update { gr.wsol.billablecalls.core.Ops.followUpDone(it, id, true, now) }
+            ACTION_F_LATER -> Store.update { gr.wsol.billablecalls.core.Ops.snoozeFollowUp(it, id, now + Store.settings.reminders.snoozeMin * 60_000L) }
+        }
         schedule(context)
     }
 
@@ -130,6 +167,7 @@ class AlarmReceiver : BroadcastReceiver() {
         Thread {
             try {
                 when (intent.action) {
+                    Alarms.ACTION_F_DONE, Alarms.ACTION_F_LATER -> intent.getStringExtra("f")?.let { Alarms.followUpAct(context, intent.action!!, it) }
                     Alarms.ACTION_CALL, Alarms.ACTION_LATER, Alarms.ACTION_IGNORE -> {
                         val key = intent.getStringExtra("key")
                         if (key != null) Alarms.act(context, intent.action!!, key)
@@ -147,6 +185,7 @@ class DialActivity : android.app.Activity() {
     override fun onCreate(savedInstanceState: android.os.Bundle?) {
         super.onCreate(savedInstanceState)
         intent.getStringExtra("key")?.let { Alarms.act(this, Alarms.ACTION_CALL, it) }
+        intent.getStringExtra("number")?.let { Alarms.dial(this, it) }
         finish()
     }
 }

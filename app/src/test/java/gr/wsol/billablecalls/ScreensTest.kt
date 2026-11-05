@@ -72,7 +72,7 @@ class ScreensTest {
     @Test fun companies() = shot("04-companies") { App(Tab.COMPANIES) }
     @Test fun missed() = shot("05-missed") { App(Tab.MISSED) }
     @Test fun settings() = shot("06-settings") { App(Tab.SETTINGS) }
-    @Test fun card() = shot("07-card") { CallCardContent(6) {} }
+    @Test fun card() = shot("07-card") { androidx.compose.material3.Surface { CallCardContent(6) {} } }
     @Test fun english() { Store.inMemory(sample(english = true)); shot("08-today-en") { App(Tab.TODAY) } }
     @Test fun onboarding() { Store.inMemory(Data()); shot("09-onboarding") { App() } }
 

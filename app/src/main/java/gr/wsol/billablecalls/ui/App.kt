@@ -37,8 +37,11 @@ private val Brand = Color(0xFF1F5EFF)
 
 @Composable
 fun BillableTheme(content: @Composable () -> Unit) {
-    val dark = isSystemInDarkTheme()
-    val colors = if (dark) darkColorScheme(primary = Color(0xFF8FB0FF), secondary = Color(0xFFFFC83D), background = Color(0xFF111318), surface = Color(0xFF1B1E25))
+    val look = Store.flow.collectAsState().value.settings.look
+    val dark = when (look) { "light" -> false; "system" -> isSystemInDarkTheme(); else -> true }
+    // black: the background is true black, the cards just above it
+    val colors = if (dark) darkColorScheme(primary = Color(0xFF8FB0FF), secondary = Color(0xFFFFC83D), background = Color.Black, surface = Color(0xFF151619),
+        surfaceVariant = Color(0xFF22242A), surfaceContainer = Color(0xFF101114), surfaceContainerHigh = Color(0xFF1C1E23), surfaceContainerHighest = Color(0xFF26282E), surfaceContainerLow = Color(0xFF0C0D0F))
     else lightColorScheme(primary = Brand, secondary = Color(0xFFB07800), background = Color(0xFFF6F7FB), surface = Color.White, surfaceVariant = Color(0xFFE9ECF4))
     MaterialTheme(colorScheme = colors, content = content)
 }
@@ -52,7 +55,7 @@ fun App(startTab: Tab = Tab.TODAY) {
     var tab by rememberSaveable { mutableStateOf(startTab) }
     var editing by rememberSaveable { mutableStateOf<Long?>(null) }
     var company by rememberSaveable { mutableStateOf<String?>(null) }
-    val missed = d.reminders.count { !it.stopped }
+    val missed = d.reminders.count { !it.stopped } + d.followUps.count { it.doneAt == null }
     Scaffold(
         bottomBar = {
             NavigationBar {
@@ -60,7 +63,7 @@ fun App(startTab: Tab = Tab.TODAY) {
                     Triple(Tab.TODAY, t("Σήμερα", "Today"), Icons.Default.Today),
                     Triple(Tab.CALLS, t("Κλήσεις", "Calls"), Icons.Default.Call),
                     Triple(Tab.COMPANIES, t("Εταιρείες", "Companies"), Icons.Default.Business),
-                    Triple(Tab.MISSED, t("Αναπάντ.", "Missed"), Icons.Default.PhoneMissed),
+                    Triple(Tab.MISSED, t("Εκκρεμή", "To do"), Icons.Default.PhoneMissed),
                     Triple(Tab.SETTINGS, t("Ρυθμίσεις", "Settings"), Icons.Default.Settings),
                 ).forEach { (tb, label, icon) ->
                     val badge = if (tb == Tab.MISSED) missed else 0

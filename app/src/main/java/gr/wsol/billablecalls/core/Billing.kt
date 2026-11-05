@@ -12,16 +12,22 @@ object Billing {
         if (!call.answered || !call.business) return false
         call.billable?.let { return it }
         // by topic: only the billable topics count (a call without a topic doesn't)
-        if (s.billByCategory && (call.category == null || call.category !in s.billableCategories)) return false
+        // (a call without a topic counts as the default topic, e.g. calls from before the topics)
+        val topic = call.category ?: s.defaultCategory.takeIf { it.isNotBlank() }
+        if (s.billByCategory && (topic == null || topic !in s.billableCategories)) return false
         return call.durationSec > minSec(c, s)
     }
 
     /** Billable seconds of the call (0 if it doesn't count). */
     fun seconds(call: Call, c: Company?, s: Settings): Int {
         if (!counts(call, c, s)) return 0
-        val base = rounded(call.durationSec, roundMin(c, s))
-        // out of hours (when on): × the factor, e.g. 1.5
-        return if (Overtime.isOut(call, s)) Math.round(base * s.overtimeFactor).toInt() else base
+        return factor(call, rounded(call.durationSec, roundMin(c, s)), s)
+    }
+
+    /** Out of hours or on site (when on): × the bigger of the two factors. */
+    fun factor(call: Call, sec: Int, s: Settings): Int {
+        val f = maxOf(if (Overtime.isOut(call, s)) s.overtimeFactor else 1.0, if (s.onsiteOn && call.onsite) s.onsiteFactor else 1.0)
+        return if (f == 1.0) sec else Math.round(sec * f).toInt()
     }
 
     fun rounded(sec: Int, roundMin: Int): Int {
@@ -30,7 +36,26 @@ object Billing {
         return (ceil(sec / block.toDouble()) * block).toInt().coerceAtLeast(block)
     }
 
-    fun seconds(call: Call, d: Data) = seconds(call, d.company(call.companyId), d.settings)
+    /**
+     * With the joined calls: a call joined to an earlier one bills 0, and the first one bills the time
+     * of all of them together, rounded once (two 4′ calls are one 15′ block, not two).
+     */
+    fun seconds(call: Call, d: Data): Int {
+        if (call.mergedInto != null && d.calls.any { it.id == call.mergedInto }) return 0
+        val joined = d.calls.filter { it.mergedInto == call.id }
+        if (joined.isEmpty()) return seconds(call, d.company(call.companyId), d.settings)
+        val total = call.copy(durationSec = call.durationSec + joined.sumOf { if (it.answered) it.durationSec else 0 })
+        return seconds(total, d.company(call.companyId), d.settings)
+    }
+
+    /** The earlier call of the same number this one may be joined to (ended within the window), if any. */
+    fun mergeCandidate(call: Call, d: Data): Call? {
+        if (!d.settings.mergeOn || !call.answered) return null
+        val win = d.settings.mergeMin * 60_000L
+        return d.calls.filter { it.id != call.id && it.answered && !it.personal && it.mergedInto == null && it.start < call.start &&
+            (it.key == call.key || call.companyId != null && it.companyId == call.companyId) && call.start - it.end in 0..win }
+            .maxByOrNull { it.start }
+    }
 
     /** «1:05:00», «12:30», «0:45». */
     fun hms(sec: Int): String {

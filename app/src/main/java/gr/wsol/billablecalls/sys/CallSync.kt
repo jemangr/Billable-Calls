@@ -97,7 +97,7 @@ object CallSync {
             val dir = direction(r.type, r.duration) ?: continue
             val contact = source.contact(r.number)
             val cid = if (r.id in known) (d.calls.maxOfOrNull { it.id } ?: 0L) + 1_000_000_000L + added.size else r.id
-            val call = Ops.classify(Call(cid, Phone.key(r.number), r.number, contact?.name, contact?.org, r.account, dir, r.date, r.duration, reviewed = r.date < s.since), d, idx)
+            val call = Ops.withDefaultTopic(Ops.classify(Call(cid, Phone.key(r.number), r.number, contact?.name, contact?.org, r.account, dir, r.date, r.duration, reviewed = r.date < s.since), d, idx), s)
             added += call
         }
         d = d.copy(calls = d.calls + added, settings = d.settings.copy(lastCallId = lastId))

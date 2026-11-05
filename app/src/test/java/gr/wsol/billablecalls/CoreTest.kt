@@ -100,7 +100,7 @@ class MatcherTest {
 }
 
 class BillingTest {
-    private val s = Settings(minSec = 60, roundMin = 15)
+    private val s = Settings(minSec = 60, roundMin = 15, billByCategory = false)
     private val c = Company("a", "ΑΒΓ")
     private fun call(sec: Int, dir: Direction = Direction.IN, billable: Boolean? = null) = Call(1, "1", "1", direction = dir, start = 0, durationSec = sec, companyId = "a", billable = billable)
 
@@ -124,6 +124,15 @@ class BillingTest {
         assertEquals(0, Billing.seconds(call(0, Direction.MISSED), c, s))
         assertEquals(0, Billing.seconds(call(600).copy(companyId = null), null, s))
         assertEquals(0, Billing.seconds(call(600).copy(personal = true), c, s))
+    }
+
+    @Test fun byTopic() {
+        val t = Settings(minSec = 60, roundMin = 15, categories = listOf("Υποστήριξη", "Άλλο"), billableCategories = listOf("Υποστήριξη"))
+        assertEquals(15 * 60, Billing.seconds(call(240).copy(category = "Υποστήριξη"), c, t))
+        assertEquals(0, Billing.seconds(call(240).copy(category = "Άλλο"), c, t))
+        assertEquals(0, Billing.seconds(call(240), c, t))
+        // a manual yes still wins
+        assertEquals(15 * 60, Billing.seconds(call(240, billable = true).copy(category = "Άλλο"), c, t))
     }
 
     @Test fun formats() {
@@ -274,7 +283,7 @@ class ExportTest {
             Call(1, "1", "1", contact = "Νίκος", direction = Direction.IN, start = start, durationSec = 240, companyId = "a", note = "ΦΠΑ"),
             Call(2, "1", "1", direction = Direction.OUT, start = start + 3600_000, durationSec = 30, companyId = "a"),
             Call(3, "2", "2", direction = Direction.IN, start = start, durationSec = 600),
-        ))
+        ), settings = Settings(billByCategory = false))
         val p = Period(LocalDate.of(2026, 11, 1), LocalDate.of(2026, 11, 30))
         val calls = Export.calls(d, p, null, zone = z)
         assertEquals(2, calls.size)

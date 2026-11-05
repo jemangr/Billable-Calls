@@ -23,7 +23,7 @@ object Ops {
         return d.copy(calls = d.calls.map { c ->
             when (c.how) {
                 How.MANUAL -> if (c.companyId != null && c.companyId !in ids) c.copy(companyId = null, how = How.NONE) else c
-                else -> classify(c, d, idx)
+                else -> classify(c, d, idx).let { if (!it.reviewed) withDefaultTopic(it, d.settings) else it }
             }
         })
     }
@@ -36,7 +36,7 @@ object Ops {
         val keys = d.calls.filter { it.id in callIds }.map { it.key }.toSet()
         val personal = companyId == null
         val calls = d.calls.map { c ->
-            if (c.id in callIds || (forNumbers && c.key in keys)) c.copy(companyId = companyId, personal = personal, how = if (forNumbers) How.RULE else How.MANUAL)
+            if (c.id in callIds || (forNumbers && c.key in keys)) withDefaultTopic(c.copy(companyId = companyId, personal = personal, how = if (forNumbers) How.RULE else How.MANUAL), d.settings)
             else c
         }
         val rules = if (!forNumbers) d.rules else d.rules.filter { it.key !in keys } + keys.map { NumberRule(it, companyId, personal) }
@@ -45,6 +45,24 @@ object Ops {
     }
 
     fun edit(d: Data, id: Long, change: (Call) -> Call) = d.copy(calls = d.calls.map { if (it.id == id) change(it) else it })
+
+    /**
+     * What the card (or its notification buttons) says about a call: business or personal, which
+     * company (also for the next calls of the number with [forNumber]), topic, billable, note.
+     */
+    fun review(d0: Data, callId: Long, business: Boolean, companyId: String?, forNumber: Boolean, category: String?, billable: Boolean?, note: String?): Data {
+        val call = d0.calls.firstOrNull { it.id == callId } ?: return d0
+        var d = d0
+        val target = if (business) companyId else null
+        val changed = target != call.companyId || (!business) != call.personal
+        val ruleDiffers = forNumber && d.rule(call.key).let { it == null || it.companyId != target || it.personal != !business }
+        if ((changed || ruleDiffers) && (!business || target != null)) d = assign(d, setOf(call.id), target, forNumber)
+        return edit(d, call.id) { it.copy(category = if (business) category else it.category, billable = billable, note = note?.trim() ?: it.note, reviewed = true) }
+    }
+
+    /** The default topic for a new business call without one. */
+    fun withDefaultTopic(c: Call, s: Settings): Call =
+        if (c.business && c.category == null && s.defaultCategory.isNotBlank() && s.defaultCategory in s.categories) c.copy(category = s.defaultCategory) else c
 
     fun addCompany(d: Data, name: String, aliases: List<String> = emptyList()): Pair<Data, Company> {
         val key = Matcher.norm(name)

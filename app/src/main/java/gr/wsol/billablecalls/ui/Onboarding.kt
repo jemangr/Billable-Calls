@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -58,7 +59,8 @@ fun Onboarding() {
     var busy by remember { mutableStateOf(false) }
     val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted = Perms.CORE.all { Perms.has(ctx, it) } }
     val last = 9
-    Column(Modifier.fillMaxSize()) {
+    // safeDrawingPadding: below the status bar, and above the keyboard when typing
+    Column(Modifier.fillMaxSize().safeDrawingPadding()) {
         LinearProgressIndicator(progress = { (step + 1) / (last + 1f) }, modifier = Modifier.fillMaxWidth())
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(vertical = 12.dp)) {
             @Composable fun head(title: String, text: String) {

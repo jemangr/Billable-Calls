@@ -96,6 +96,10 @@ enum class Separator(val chars: String) { ANY(""), DASH("-"), SPACE(" "), PIPE("
 @Serializable
 enum class CardMode { ALL, UNMATCHED, NEVER }
 
+/** How the after-call card shows: a window over the screen, or a notification with buttons. */
+@Serializable
+enum class CardStyle { OVERLAY, NOTIFICATION }
+
 /** A time range in minutes of the day [from, to). */
 @Serializable
 data class Window(val on: Boolean = true, val from: Int = 9 * 60, val to: Int = 17 * 60)
@@ -142,7 +146,15 @@ data class Settings(
     val minSec: Int = 60,
     val roundMin: Int = 15,
     val cardMode: CardMode = CardMode.ALL,
+    val cardStyle: CardStyle = CardStyle.OVERLAY,
     val instantCard: Boolean = false,
+    /** The topic a new business call gets (and the card starts with); "" = none. */
+    val defaultCategory: String = "Υποστήριξη",
+    /** Billable or not by the call's topic (only the topics in [billableCategories] count). */
+    val billByCategory: Boolean = true,
+    val billableCategories: List<String> = DEFAULT_CATEGORIES,
+    /** The «billable yes/no» choice on the card (off: by topic only). */
+    val cardBillable: Boolean = false,
     val reminders: ReminderSettings = ReminderSettings(),
     val categories: List<String> = DEFAULT_CATEGORIES,
     /** Customer list: "file", "url", "drive" or "" (by hand). */

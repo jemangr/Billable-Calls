@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
@@ -24,7 +25,6 @@ class CardActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Store.init(this)
-        Notify.cancel(this, Card.NID)
         render()
     }
 
@@ -37,10 +37,12 @@ class CardActivity : ComponentActivity() {
     private fun render() {
         val ids = intent.getLongArrayExtra("ids")?.toList().orEmpty().filter { id -> Store.data.calls.any { it.id == id && !it.reviewed } }
         if (ids.isEmpty()) { finish(); return }
+        ids.forEach { Notify.cancel(this, Card.nid(it)) }
         setContent {
             BillableTheme {
                 var i by remember { mutableIntStateOf(0) }
-                Surface(Modifier.fillMaxWidth().padding(8.dp), shape = RoundedCornerShape(20.dp), tonalElevation = 6.dp) {
+                // imePadding: the card moves up above the keyboard when you write the note
+                Surface(Modifier.fillMaxWidth().imePadding().padding(8.dp), shape = RoundedCornerShape(20.dp), tonalElevation = 6.dp) {
                     CallCardContent(ids[i], counter = if (ids.size > 1) "${i + 1}/${ids.size}" else null) {
                         if (i + 1 < ids.size) i++ else finish()
                     }

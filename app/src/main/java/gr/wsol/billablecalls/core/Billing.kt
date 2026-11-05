@@ -11,6 +11,8 @@ object Billing {
     fun counts(call: Call, c: Company?, s: Settings): Boolean {
         if (!call.answered || !call.business) return false
         call.billable?.let { return it }
+        // by topic: only the billable topics count (a call without a topic doesn't)
+        if (s.billByCategory && (call.category == null || call.category !in s.billableCategories)) return false
         return call.durationSec > minSec(c, s)
     }
 

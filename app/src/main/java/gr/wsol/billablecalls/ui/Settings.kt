@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import com.google.android.gms.auth.api.identity.Identity
 import gr.wsol.billablecalls.BuildConfig
 import gr.wsol.billablecalls.core.CardMode
+import gr.wsol.billablecalls.core.CardStyle
 import gr.wsol.billablecalls.core.Data
 import gr.wsol.billablecalls.core.Export
 import gr.wsol.billablecalls.core.MatchMode
@@ -174,6 +175,8 @@ fun BillingSection(d: Data) {
         Text(t("Στρογγύλεμα προς τα πάνω σε", "Rounded up to"), style = MaterialTheme.typography.titleSmall)
         RoundPicker(s.roundMin, general = false) { v -> Store.settings { it.copy(roundMin = v ?: 0) } }
         Muted(t("Π.χ. με 15′: κλήση 4′ = 15′, 16′ = 30′.", "E.g. with 15′: a 4′ call = 15′, 16′ = 30′."))
+        SwitchRow(t("Χρεώσιμη ανάλογα με το θέμα", "Billable by topic"), s.billByCategory, t("Μετράνε μόνο τα θέματα που είναι «χρεώσιμα» (στα Θέματα κλήσεων).", "Only the topics marked «billable» count (in Call topics).")) { v -> Store.settings { it.copy(billByCategory = v) } }
+        SwitchRow(t("«Χρεώσιμη ναι/όχι» στην κάρτα", "«Billable yes/no» on the card"), s.cardBillable, t("Για να αλλάζεις με το χέρι μια κλήση.", "To change a single call by hand.")) { v -> Store.settings { it.copy(cardBillable = v) } }
     }
 }
 
@@ -183,10 +186,13 @@ fun CardSection(d: Data) {
     val s = d.settings
     SectionCard(t("Κάρτα μετά την κλήση", "After-call card"), t("«Εταιρική;», εταιρεία, θέμα και σημείωση.", "«Business?», company, topic and note.")) {
         Choice(listOf(CardMode.ALL to t("Σε κάθε κλήση", "Every call"), CardMode.UNMATCHED to t("Μόνο χωρίς εταιρεία", "Only without company"), CardMode.NEVER to t("Ποτέ", "Never")), s.cardMode) { v -> Store.settings { it.copy(cardMode = v) } }
-        if (!Card.canOverlay(ctx)) {
+        Text(t("Πώς βγαίνει", "How it shows"), style = MaterialTheme.typography.titleSmall)
+        Choice(listOf(CardStyle.OVERLAY to t("Κάρτα πάνω από την οθόνη", "Card over the screen"), CardStyle.NOTIFICATION to t("Ειδοποίηση με κουμπιά", "Notification with buttons")), s.cardStyle) { v -> Store.settings { it.copy(cardStyle = v) } }
+        Muted(t("Η ειδοποίηση έχει «✓ εταιρεία», «Προσωπική» και «✎ Σημείωση» (γράφεις μέσα στην ειδοποίηση). Αν την πατήσεις, ανοίγει η κάρτα.", "The notification has «✓ company», «Personal» and «✎ Note» (you type in the notification). Tapping it opens the card."))
+        if (s.cardStyle == CardStyle.OVERLAY && !Card.canOverlay(ctx)) {
             Muted(t("Για να βγαίνει πάνω από την οθόνη, δώσε «Εμφάνιση πάνω από άλλες εφαρμογές». Αλλιώς βγαίνει ειδοποίηση.", "To open over the screen, allow «Display over other apps». Otherwise a notification opens it."))
             OutlinedButton(onClick = { Card.overlaySettings(ctx) }) { Text(t("Άδεια εμφάνισης", "Allow display")) }
-        } else Muted(t("✓ Βγαίνει πάνω από την οθόνη.", "✓ Opens over the screen."))
+        } else if (s.cardStyle == CardStyle.OVERLAY) Muted(t("✓ Βγαίνει πάνω από την οθόνη.", "✓ Opens over the screen."))
         SwitchRow(t("Άμεση κάρτα", "Instant card"), s.instantCard, t("Με μόνιμη ειδοποίηση, για κινητά που καθυστερούν την κάρτα.", "With an ongoing notification, for phones that delay the card.")) { on ->
             Store.settings { it.copy(instantCard = on) }; if (on) InstantService.start(ctx) else InstantService.stop(ctx)
         }
@@ -260,13 +266,23 @@ fun SimSection(d: Data) {
 @Composable
 fun CategorySection(d: Data) {
     var add by remember { mutableStateOf(false) }
-    SectionCard(t("Θέματα κλήσεων", "Call topics"), t("Πάτα για αφαίρεση.", "Tap to remove.")) {
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            d.settings.categories.forEach { c -> FilterChip(true, { Store.settings { it.copy(categories = it.categories - c) } }, label = { Text("$c ✕") }) }
-            FilterChip(false, { add = true }, label = { Text(t("+ θέμα", "+ topic")) })
+    val s = d.settings
+    SectionCard(t("Θέματα κλήσεων", "Call topics"),
+        if (s.billByCategory) t("★ = προεπιλογή στις νέες κλήσεις. Ο διακόπτης: χρεώσιμο θέμα ή όχι.", "★ = default for new calls. The switch: billable topic or not.")
+        else t("★ = προεπιλογή στις νέες κλήσεις.", "★ = default for new calls.")) {
+        s.categories.forEach { c ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = { Store.settings { it.copy(defaultCategory = if (it.defaultCategory == c) "" else c) } }) { Text(if (s.defaultCategory == c) "★" else "☆") }
+                Text(c, Modifier.weight(1f))
+                if (s.billByCategory) androidx.compose.material3.Switch(c in s.billableCategories, { on ->
+                    Store.settings { it.copy(billableCategories = if (on) (it.billableCategories + c).distinct() else it.billableCategories - c) }
+                })
+                TextButton(onClick = { Store.settings { it.copy(categories = it.categories - c, billableCategories = it.billableCategories - c, defaultCategory = if (it.defaultCategory == c) "" else it.defaultCategory) } }) { Text("✕") }
+            }
         }
+        TextButton(onClick = { add = true }) { Text(t("+ θέμα", "+ topic")) }
     }
-    if (add) TextDialog(t("Νέο θέμα", "New topic"), "", null, { add = false }) { c -> Store.settings { it.copy(categories = (it.categories + c.trim()).distinct()) }; add = false }
+    if (add) TextDialog(t("Νέο θέμα", "New topic"), "", null, { add = false }) { c -> Store.settings { it.copy(categories = (it.categories + c.trim()).distinct(), billableCategories = (it.billableCategories + c.trim()).distinct()) }; add = false }
 }
 
 @Composable

@@ -44,14 +44,7 @@ import gr.wsol.billablecalls.core.t
 
 /** Saves what the card says about a call: business or not, which company, topic, billable, note. */
 fun saveCard(call: Call, business: Boolean, companyId: String?, forNumber: Boolean, category: String?, billable: Boolean?, note: String) {
-    Store.update { d0 ->
-        var d = d0
-        val target = if (business) companyId else null
-        if (target != call.companyId || (!business) != call.personal || forNumber && d.rule(call.key)?.companyId != target) {
-            if (!business || target != null) d = Ops.assign(d, setOf(call.id), target, forNumber)
-        }
-        Ops.edit(d, call.id) { it.copy(category = category, billable = billable, note = note.trim(), reviewed = true) }
-    }
+    Store.update { Ops.review(it, call.id, business, companyId, forNumber, category, billable, note) }
 }
 
 /**
@@ -66,7 +59,8 @@ fun CallCardContent(callId: Long, counter: String? = null, onDone: () -> Unit) {
     var business by remember(callId) { mutableStateOf(!call.personal) }
     var companyId by remember(callId) { mutableStateOf(call.companyId) }
     var forNumber by remember(callId) { mutableStateOf(true) }
-    var category by remember(callId) { mutableStateOf(call.category) }
+    // the topic starts as the default one (e.g. «Υποστήριξη») when the call has none
+    var category by remember(callId) { mutableStateOf(call.category ?: d.settings.defaultCategory.takeIf { it.isNotBlank() && it in d.settings.categories }) }
     var billable by remember(callId) { mutableStateOf(call.billable) }
     var note by remember(callId) { mutableStateOf(call.note) }
     var picking by remember(callId) { mutableStateOf(call.companyId == null) }
@@ -104,11 +98,13 @@ fun CallCardContent(callId: Long, counter: String? = null, onDone: () -> Unit) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 d.settings.categories.forEach { cat -> FilterChip(category == cat, { category = if (category == cat) null else cat }, label = { Text(cat) }) }
             }
-            Text(t("Χρεώσιμη", "Billable"), style = MaterialTheme.typography.titleSmall)
-            val auto = call.copy(companyId = companyId, personal = false, billable = null).let { Billing.counts(it, d.company(companyId), d.settings) }
-            Choice(listOf<Pair<Boolean?, String>>(null to t("Αυτόματα (${if (auto) "ναι" else "όχι"})", "Auto (${if (auto) "yes" else "no"})"), true to t("Ναι", "Yes"), false to t("Όχι", "No")), billable) { billable = it }
-            val sec = Billing.seconds(call.copy(companyId = companyId, personal = false, billable = billable), d.company(companyId), d.settings)
-            Muted(t("Χρεώσιμος χρόνος: ", "Billable time: ") + Billing.hms(sec))
+            val auto = call.copy(companyId = companyId, personal = false, billable = null, category = category).let { Billing.counts(it, d.company(companyId), d.settings) }
+            if (d.settings.cardBillable) {
+                Text(t("Χρεώσιμη", "Billable"), style = MaterialTheme.typography.titleSmall)
+                Choice(listOf<Pair<Boolean?, String>>(null to t("Αυτόματα (${if (auto) "ναι" else "όχι"})", "Auto (${if (auto) "yes" else "no"})"), true to t("Ναι", "Yes"), false to t("Όχι", "No")), billable) { billable = it }
+            }
+            val sec = Billing.seconds(call.copy(companyId = companyId, personal = false, billable = billable, category = category), d.company(companyId), d.settings)
+            Muted(t("Χρεώσιμος χρόνος: ", "Billable time: ") + Billing.hms(sec) + if (d.settings.billByCategory && billable == null) t(" (από το θέμα)", " (by topic)") else "")
         } else {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Checkbox(forNumber, { forNumber = it })

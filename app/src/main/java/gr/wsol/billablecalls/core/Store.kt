@@ -14,13 +14,15 @@ object Store {
     val json = Json { ignoreUnknownKeys = true; encodeDefaults = false; explicitNulls = false }
 
     private var file: File? = null
+    @Volatile private var ready = false
     private val _data = MutableStateFlow(Data())
     val flow: StateFlow<Data> = _data
     val data: Data get() = _data.value
     val settings: Settings get() = _data.value.settings
 
     @Synchronized fun init(context: Context) {
-        if (file != null) return
+        if (ready) return
+        ready = true
         val f = File(context.filesDir, "data.json")
         file = f
         val loaded = runCatching { if (f.exists()) json.decodeFromString(Data.serializer(), f.readText()) else null }.getOrNull()
@@ -30,7 +32,7 @@ object Store {
     }
 
     /** For tests: no file. */
-    @Synchronized fun inMemory(d: Data = Data()) { file = null; _data.value = d; Lang.english = d.settings.english }
+    @Synchronized fun inMemory(d: Data = Data()) { ready = true; file = null; _data.value = d; Lang.english = d.settings.english }
 
     @Synchronized fun update(change: (Data) -> Data): Data {
         val d = change(_data.value)

@@ -1,6 +1,8 @@
 package gr.wsol.billablecalls.ui
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -68,7 +70,8 @@ fun App(startTab: Tab = Tab.TODAY) {
             }
         },
     ) { pad ->
-        Box(Modifier.fillMaxSize().padding(pad)) {
+        // imePadding: when the keyboard opens, the screen moves up above it
+        Box(Modifier.fillMaxSize().padding(pad).consumeWindowInsets(pad).imePadding()) {
             when {
                 editing != null -> CallEditor(editing!!, onClose = { editing = null })
                 tab == Tab.TODAY -> TodayScreen(onCall = { editing = it }, onMissed = { tab = Tab.MISSED })

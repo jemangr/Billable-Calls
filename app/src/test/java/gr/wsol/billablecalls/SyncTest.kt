@@ -55,6 +55,35 @@ class SyncTest {
         assertEquals(0, CallSync.merge(d, raw, src, now).added.size)
     }
 
+    @Test fun defaultTopicOnNewBusinessCalls() {
+        val raw = listOf(RawCall(10, "+306971111111", CallLog.Calls.INCOMING_TYPE, now - 600_000, 300, null), RawCall(11, "699", CallLog.Calls.INCOMING_TYPE, now - 500_000, 300, null))
+        val d = CallSync.merge(base, raw, src, now).data
+        assertEquals("Υποστήριξη", d.calls.first { it.id == 10L }.category)
+        assertEquals(null, d.calls.first { it.id == 11L }.category) // not a business call
+        // added to a company later: gets it too
+        val d2 = gr.wsol.billablecalls.core.Ops.assign(d, setOf(11L), "a", forNumbers = false)
+        assertEquals("Υποστήριξη", d2.calls.first { it.id == 11L }.category)
+    }
+
+    @Test fun notificationButtons() {
+        val ctx = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        val raw = listOf(RawCall(10, "+306971111111", CallLog.Calls.INCOMING_TYPE, now - 600_000, 300, null), RawCall(11, "699", CallLog.Calls.INCOMING_TYPE, now - 500_000, 300, null))
+        Store.inMemory(CallSync.merge(base, raw, src, now).data)
+        val r = gr.wsol.billablecalls.sys.CardReceiver()
+        fun send(action: String, id: Long, note: String? = null) {
+            val i = android.content.Intent(action).putExtra("id", id)
+            if (note != null) androidx.core.app.RemoteInput.addResultsToIntent(arrayOf(androidx.core.app.RemoteInput.Builder(gr.wsol.billablecalls.sys.Card.KEY_NOTE).build()), i, android.os.Bundle().apply { putCharSequence(gr.wsol.billablecalls.sys.Card.KEY_NOTE, note) })
+            r.onReceive(ctx, i)
+        }
+        send(gr.wsol.billablecalls.sys.Card.ACTION_CONFIRM, 10)
+        Store.data.calls.first { it.id == 10L }.let { assertTrue(it.reviewed && it.business && it.category == "Υποστήριξη") }
+        assertEquals("a", Store.data.rule("6971111111")?.companyId)
+        send(gr.wsol.billablecalls.sys.Card.ACTION_NOTE, 11, "Μίλησα για το ΦΠΑ")
+        assertEquals("Μίλησα για το ΦΠΑ", Store.data.calls.first { it.id == 11L }.note)
+        send(gr.wsol.billablecalls.sys.Card.ACTION_PERSONAL, 11)
+        assertTrue(Store.data.calls.first { it.id == 11L }.personal)
+    }
+
     @Test fun cardModesAndSims() {
         val raw = listOf(RawCall(10, "+306971111111", CallLog.Calls.INCOMING_TYPE, now - 600_000, 300, "sim2"), RawCall(11, "699", CallLog.Calls.INCOMING_TYPE, now - 500_000, 300, "sim1"))
         assertEquals(listOf(11L), CallSync.merge(base.copy(settings = base.settings.copy(cardMode = CardMode.UNMATCHED)), raw, src, now).forCard.map { it.id })

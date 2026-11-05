@@ -70,6 +70,7 @@
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
         <receiver android:name=".sys.AlarmReceiver" android:exported="false" />
+        <receiver android:name=".sys.CardReceiver" android:exported="false" />
         <receiver android:name=".sys.BootReceiver" android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />

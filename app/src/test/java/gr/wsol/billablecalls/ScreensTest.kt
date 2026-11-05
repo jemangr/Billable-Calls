@@ -103,7 +103,7 @@ class ScreensTest {
     @Test fun cardSavesCompanyAndNote() {
         shot("07-card") { CallCardContent(6) {} }
         tap("ΑΒΓ Α.Ε.")
-        tap("Υποστήριξη")
+        // «Υποστήριξη» is already chosen (the default topic)
         tap("Αποθήκευση")
         val c = Store.data.calls.first { it.id == 6L }
         assertEquals("a", c.companyId); assertEquals("Υποστήριξη", c.category); assertTrue(c.reviewed)

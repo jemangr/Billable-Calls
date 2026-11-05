@@ -1,13 +1,18 @@
-## Billable Calls 1.1
+## Billable Calls 1.2
 
-- **The after-call notification has buttons:**
-  - «✓ company» confirms the call.
-  - «Personal» marks it personal.
-  - «✎ Note» lets you type the note right in the notification.
-  - Tapping it opens the full card.
-- **A choice for how the card shows** (Settings → After-call card): a card over the screen, or a notification with buttons. Without the «display over other apps» permission, the notification is used.
-- **Default topic:** new business calls get «Υποστήριξη». Mark any topic as the default with ★ in Settings → Call topics.
-- **Billable by topic:** only the topics switched on as billable count. The «billable yes/no» choice is no longer on the card; you can turn it back on in Settings → Billable time.
-- **Keyboard:** the screen and the card move up above the keyboard when you type.
+Professional options. Each one turns on and off on its own, in Settings → Professional.
 
-**Install:** download `BillableCalls.apk` below. If you have 1.0, the app offers the update itself (Settings → Updates).
+- **Contracts:** a monthly package of hours per company. You see what's left, and get a notification the first time it's exceeded in a month. Excel and PDF show the package and the hours over it.
+- **Out of hours:** calls outside your working hours count ×1.25, ×1.5 or ×2, and are marked ⏰.
+- **Invoiced calls:** the export can take only the calls not invoiced yet, then mark them as invoiced (🧾).
+- **PDF timesheet:** your logo, name and details on top.
+- **Webhook:** a POST with JSON to your URL (e.g. n8n) after every business call's card. If it fails, it is sent again later.
+- **Viber / WhatsApp calls:** read from their notifications, once you allow «Notification access». The duration is approximate, and only the name is known, not the number.
+- **Lock:** fingerprint or PIN. The after-call card isn't locked.
+
+Also:
+- **Battery:** an exemption button, plus steps for Xiaomi, Samsung, Huawei, OnePlus and Oppo.
+- **Greeklish:** «Papadopoulos» matches «Παπαδόπουλος». Names that are only similar (a typo) are suggested, never matched automatically.
+- **🎤:** dictate the note.
+- **Moving calls:** «All of the contact» moves every call of the contact, with all its numbers, past and next.
+- **History:** «Read the history again» in Settings.

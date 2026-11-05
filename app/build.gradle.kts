@@ -16,8 +16,8 @@ android {
         applicationId = "gr.wsol.billablecalls"
         minSdk = 29
         targetSdk = 36
-        versionCode = 2
-        versionName = "1.1.0"
+        versionCode = 3
+        versionName = "1.2.0"
         buildConfigField("boolean", "UPDATE_CHECK", (!project.hasProperty("noUpdateCheck")).toString())
     }
 
@@ -81,6 +81,8 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     // Google sign-in for Drive (only the files the app itself creates: scope drive.file).
     implementation(libs.play.services.auth)
+    // The optional lock (fingerprint / PIN).
+    implementation(libs.androidx.biometric)
 
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)

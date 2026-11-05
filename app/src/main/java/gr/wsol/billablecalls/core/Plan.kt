@@ -66,6 +66,8 @@ object Reminders {
             else -> false
         }
         if (!kind || call.personal) return false
+        // Viber/WhatsApp calls have no number to call back
+        if (call.sim in Voip.APPS.values) return false
         return when {
             call.companyId != null -> r.customers
             call.contact.isNullOrBlank() -> r.unknown

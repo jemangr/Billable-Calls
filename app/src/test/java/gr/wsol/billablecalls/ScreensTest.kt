@@ -85,7 +85,7 @@ class ScreensTest {
         tap("Προσθήκη σε εταιρεία")
         compose.onRoot().captureRoboImage("build/screens/03-calls-pick.png")
         tap("ΔΕΛΤΑ ΕΠΕ")
-        tap("Όλες του αριθμού")
+        tap("Όλες της επαφής")
         assertEquals("d", Store.data.calls.first { it.id == 6L }.companyId)
         assertEquals("d", Store.data.rule("6944444444")?.companyId)
     }

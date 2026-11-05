@@ -34,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.material.icons.filled.Mic
 import gr.wsol.billablecalls.core.Billing
 import gr.wsol.billablecalls.core.Call
 import gr.wsol.billablecalls.core.Export
@@ -54,6 +55,7 @@ fun saveCard(call: Call, business: Boolean, companyId: String?, forNumber: Boole
 @Composable
 fun CallCardContent(callId: Long, counter: String? = null, onDone: () -> Unit) {
     val d by Store.flow.collectAsState()
+    val ctx = androidx.compose.ui.platform.LocalContext.current
     val call = d.calls.firstOrNull { it.id == callId } ?: run { androidx.compose.runtime.LaunchedEffect(callId) { onDone() }; return }
     val suggestions = remember(callId) { Matcher.match(call.contact, call.org, d.companies, d.settings).suggestions }
     var business by remember(callId) { mutableStateOf(!call.personal) }
@@ -92,7 +94,7 @@ fun CallCardContent(callId: Long, counter: String? = null, onDone: () -> Unit) {
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Checkbox(forNumber, { forNumber = it })
-                Text(t("Ισχύει και για τις επόμενες κλήσεις αυτού του αριθμού", "Also for the next calls of this number"), style = MaterialTheme.typography.bodyMedium)
+                Text(t("Το ίδιο για όλες τις κλήσεις της επαφής (παλιές και επόμενες)", "The same for every call of the contact (past and next)"), style = MaterialTheme.typography.bodyMedium)
             }
             Text(t("Θέμα", "Topic"), style = MaterialTheme.typography.titleSmall)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -108,14 +110,27 @@ fun CallCardContent(callId: Long, counter: String? = null, onDone: () -> Unit) {
         } else {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Checkbox(forNumber, { forNumber = it })
-                Text(t("Και οι επόμενες κλήσεις του αριθμού ως προσωπικές", "The next calls of this number as personal too"), style = MaterialTheme.typography.bodyMedium)
+                Text(t("Όλες οι κλήσεις της επαφής ως προσωπικές (παλιές και επόμενες)", "Every call of the contact as personal (past and next)"), style = MaterialTheme.typography.bodyMedium)
             }
         }
-        OutlinedTextField(note, { note = it }, label = { Text(t("Σημείωση: τι συζητήθηκε", "Note: what was discussed")) }, modifier = Modifier.fillMaxWidth(), minLines = 2)
+        // 🎤: say the note (Android's speech recognition), it is added to what's written
+        val speak = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()) { r ->
+            r.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.let { said -> note = listOf(note.trim(), said).filter { it.isNotBlank() }.joinToString(" ") }
+        }
+        OutlinedTextField(note, { note = it }, label = { Text(t("Σημείωση: τι συζητήθηκε", "Note: what was discussed")) }, modifier = Modifier.fillMaxWidth(), minLines = 2,
+            trailingIcon = {
+                androidx.compose.material3.IconButton(onClick = {
+                    val i = android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+                        .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                        .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, if (gr.wsol.billablecalls.core.Lang.english) "en-US" else "el-GR")
+                        .putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, t("Πες τη σημείωση", "Say the note"))
+                    runCatching { speak.launch(i) }.onFailure { toast(ctx, t("Δεν υπάρχει αναγνώριση φωνής σε αυτό το κινητό.", "No speech recognition on this phone.")) }
+                }) { androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Mic, t("Υπαγόρευση", "Dictate")) }
+            })
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
             OutlinedButton(onClick = { Store.update { Ops.edit(it, call.id) { c -> c.copy(reviewed = true) } }; onDone() }) { Text(t("Παράλειψη", "Skip")) }
             Spacer(Modifier.width(8.dp))
-            Button(onClick = { saveCard(call, business, companyId, forNumber, category, billable, note); onDone() }, enabled = !business || companyId != null) { Text(t("Αποθήκευση", "Save")) }
+            Button(onClick = { saveCard(call, business, companyId, forNumber, category, billable, note); gr.wsol.billablecalls.sys.Webhook.flushLater(ctx); onDone() }, enabled = !business || companyId != null) { Text(t("Αποθήκευση", "Save")) }
         }
     }
 }

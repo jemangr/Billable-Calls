@@ -83,6 +83,8 @@ fun CallRow(c: Call, d: Data, selected: Boolean, onClick: () -> Unit, onLong: ()
         Column(horizontalAlignment = Alignment.End) {
             Text(dayHm(c.start), style = MaterialTheme.typography.bodySmall)
             Text(Billing.hms(c.durationSec), style = MaterialTheme.typography.bodySmall)
+            val flags = (if (gr.wsol.billablecalls.core.Overtime.isOut(c, d.settings)) "⏰" else "") + (if (d.settings.billedOn && c.billedAt != null) "🧾" else "")
+            if (flags.isNotEmpty()) Text(flags, style = MaterialTheme.typography.bodySmall)
             if (bill > 0) Text("⏱ " + Billing.hms(bill), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary, fontWeight = FontWeight.Bold)
         }
     }
@@ -158,9 +160,9 @@ fun CallsScreen(onCall: (Long) -> Unit) {
         val n = selected.size
         AlertDialog(onDismissRequest = { ask = null },
             title = { Text(if (target.isEmpty()) t("Αφαίρεση από τις εταιρικές", "Remove from business") else d.company(target)?.name.orEmpty()) },
-            text = { Text(t("Μόνο τις $n επιλεγμένες κλήσεις, ή όλες τις κλήσεις αυτών των αριθμών (και τις επόμενες);", "Only the $n selected calls, or every call of these numbers (and the next ones)?")) },
+            text = { Text(t("Το ίδιο για όλες τις κλήσεις της επαφής (με όλους τους αριθμούς της, παλιές και επόμενες), ή μόνο για τις $n επιλεγμένες;", "The same for every call of the contact (all its numbers, past and next), or only the $n selected?")) },
             confirmButton = {
-                Button(onClick = { Store.update { Ops.assign(it, selected, target.ifEmpty { null }, forNumbers = true) }; selected = emptySet(); ask = null }) { Text(t("Όλες του αριθμού", "All of the number")) }
+                Button(onClick = { Store.update { Ops.assign(it, selected, target.ifEmpty { null }, forNumbers = true) }; selected = emptySet(); ask = null }) { Text(t("Όλες της επαφής", "All of the contact")) }
             },
             dismissButton = {
                 TextButton(onClick = { Store.update { Ops.assign(it, selected, target.ifEmpty { null }, forNumbers = false) }; selected = emptySet(); ask = null }) { Text(t("Μόνο αυτές", "Only these")) }

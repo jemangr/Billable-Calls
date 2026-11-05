@@ -97,7 +97,7 @@ fun Onboarding() {
                 5 -> { head("SIM", t("Αν έχεις δύο SIM, διάλεξε ποια μετράει.", "With two SIMs, pick the one that counts.")); SimSection(d); Muted(t("Με μία SIM δεν χρειάζεται τίποτα.", "With one SIM nothing is needed."), Modifier.padding(horizontal = 20.dp)) }
                 6 -> { head(t("Χρεώσιμος χρόνος", "Billable time"), t("Από πόσο και πάνω μετράει μια κλήση, και πώς στρογγυλεύεται.", "How long a call must be to count, and how it is rounded.")); BillingSection(d) }
                 7 -> { head(t("Υπενθυμίσεις", "Reminders"), t("Για αναπάντητες και για εξερχόμενες που δεν απαντήθηκαν.", "For missed calls and for outgoing calls not answered.")); ReminderSection(d) }
-                8 -> { head(t("Στο τέλος της κλήσης", "At the end of a call"), t("Μια κάρτα ρωτάει αν ήταν εταιρική, ποια εταιρεία, θέμα και σημείωση.", "A card asks if it was business, which company, topic and note.")); CardSection(d); CategorySection(d) }
+                8 -> { head(t("Στο τέλος της κλήσης", "At the end of a call"), t("Μια κάρτα ρωτάει αν ήταν εταιρική, ποια εταιρεία, θέμα και σημείωση.", "A card asks if it was business, which company, topic and note.")); CardSection(d); BatterySection(); CategorySection(d) }
                 else -> { head("Backup", t("Αν χαθεί το κινητό, χάνονται και οι καταγραφές. Σύνδεσε το Google Drive για αυτόματο backup, ή κάνε backup σε αρχείο από τις Ρυθμίσεις.", "If the phone is lost, so are the records. Connect Google Drive for automatic backup, or back up to a file in Settings.")); BackupSection(d) }
             }
         }

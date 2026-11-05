@@ -59,7 +59,7 @@ class CallJob : JobService() {
                 Store.init(this)
                 when (params.jobId) {
                     Jobs.BACKUP -> Backup.autoToDrive(this)
-                    else -> { CallSync.run(this); Alarms.ring(this) }
+                    else -> { CallSync.run(this); Alarms.ring(this); Webhook.flush(this) }
                 }
             } catch (e: Exception) { Report.note("job", e.toString()) }
             // the content trigger fires once: set it again for the next call

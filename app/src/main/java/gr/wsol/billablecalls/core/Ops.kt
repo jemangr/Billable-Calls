@@ -33,7 +33,10 @@ object Ops {
      * all calls of those numbers, and the next ones too (a number rule).
      */
     fun assign(d: Data, callIds: Set<Long>, companyId: String?, forNumbers: Boolean): Data {
-        val keys = d.calls.filter { it.id in callIds }.map { it.key }.toSet()
+        // the contact's every number: the numbers of these calls, and of any call with the same contact name
+        val picked = d.calls.filter { it.id in callIds }
+        val names = picked.mapNotNull { it.contact?.takeIf { n -> n.isNotBlank() } }.toSet()
+        val keys = (picked.map { it.key } + if (forNumbers) d.calls.filter { it.contact in names }.map { it.key } else emptyList()).toSet()
         val personal = companyId == null
         val calls = d.calls.map { c ->
             if (c.id in callIds || (forNumbers && c.key in keys)) withDefaultTopic(c.copy(companyId = companyId, personal = personal, how = if (forNumbers) How.RULE else How.MANUAL), d.settings)
@@ -50,7 +53,13 @@ object Ops {
      * What the card (or its notification buttons) says about a call: business or personal, which
      * company (also for the next calls of the number with [forNumber]), topic, billable, note.
      */
-    fun review(d0: Data, callId: Long, business: Boolean, companyId: String?, forNumber: Boolean, category: String?, billable: Boolean?, note: String?): Data {
+    fun review(d0: Data, callId: Long, business: Boolean, companyId: String?, forNumber: Boolean, category: String?, billable: Boolean?, note: String?): Data =
+        reviewed(d0, callId, business, companyId, forNumber, category, billable, note).let { d ->
+            // the webhook (when on) sends the call after its card
+            if (d.settings.webhookOn && d.settings.webhookUrl.isNotBlank() && business) d.copy(pendingHooks = (d.pendingHooks + callId).distinct()) else d
+        }
+
+    private fun reviewed(d0: Data, callId: Long, business: Boolean, companyId: String?, forNumber: Boolean, category: String?, billable: Boolean?, note: String?): Data {
         val call = d0.calls.firstOrNull { it.id == callId } ?: return d0
         var d = d0
         val target = if (business) companyId else null

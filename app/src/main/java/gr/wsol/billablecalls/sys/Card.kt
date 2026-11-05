@@ -89,5 +89,7 @@ class CardReceiver : BroadcastReceiver() {
         }
         Notify.cancel(context, Card.nid(id))
         Alarms.schedule(context)
+        PackageAlerts.check(context)
+        Webhook.flushLater(context)
     }
 }

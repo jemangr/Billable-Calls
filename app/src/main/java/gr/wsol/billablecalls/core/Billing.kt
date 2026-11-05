@@ -19,7 +19,9 @@ object Billing {
     /** Billable seconds of the call (0 if it doesn't count). */
     fun seconds(call: Call, c: Company?, s: Settings): Int {
         if (!counts(call, c, s)) return 0
-        return rounded(call.durationSec, roundMin(c, s))
+        val base = rounded(call.durationSec, roundMin(c, s))
+        // out of hours (when on): × the factor, e.g. 1.5
+        return if (Overtime.isOut(call, s)) Math.round(base * s.overtimeFactor).toInt() else base
     }
 
     fun rounded(sec: Int, roundMin: Int): Int {

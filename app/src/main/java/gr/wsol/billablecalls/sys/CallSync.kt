@@ -127,11 +127,25 @@ object CallSync {
             var res: Result? = null
             Store.update { d -> merge(d, raw, src, System.currentTimeMillis()).also { res = it }.data }
             Alarms.schedule(context)
+            PackageAlerts.check(context)
             val forCard = res?.forCard.orEmpty()
             if (showCard && forCard.isNotEmpty()) Card.show(context, forCard)
         } catch (e: Exception) {
             Report.note("sync", e.toString())
         } finally { running = false }
+    }
+
+    /**
+     * «Read the history again» (Settings): the whole call log once more. Calls already here stay as they
+     * are; missing ones are added (as history: no card, no reminder).
+     */
+    fun reread(context: Context): Int {
+        Store.init(context)
+        val before = Store.data.calls.size
+        Store.settings { it.copy(lastCallId = 0) }
+        run(context, showCard = false)
+        Store.update { Ops.rematch(it) }
+        return Store.data.calls.size - before
     }
 
     /** «Only from now on»: the calls already in the log are skipped. */

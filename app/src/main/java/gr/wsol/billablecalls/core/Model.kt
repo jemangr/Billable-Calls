@@ -12,6 +12,8 @@ data class Company(
     val minSec: Int? = null,
     /** Rounding block in minutes (0 = exact); null = the general setting. */
     val roundMin: Int? = null,
+    /** A support contract: minutes included per month (null = none). */
+    val packageMin: Int? = null,
     /** "list" (from the customer list) or "manual". */
     val source: String = "manual",
 )
@@ -52,6 +54,8 @@ data class Call(
     val note: String = "",
     /** The after-call card was answered (or skipped) for this call. */
     val reviewed: Boolean = false,
+    /** When it was marked as invoiced (null = not yet). */
+    val billedAt: Long? = null,
 ) {
     val end: Long get() = start + durationSec * 1000L
     val answered: Boolean get() = (direction == Direction.IN || direction == Direction.OUT) && durationSec > 0
@@ -155,6 +159,28 @@ data class Settings(
     val billableCategories: List<String> = DEFAULT_CATEGORIES,
     /** The «billable yes/no» choice on the card (off: by topic only). */
     val cardBillable: Boolean = false,
+    // ---- professional options (each can be turned on and off) ----
+    /** Support contracts: hours included per month, per company. */
+    val packagesOn: Boolean = false,
+    /** Out of hours: calls outside [workHours] count × [overtimeFactor], with a tag. */
+    val overtimeOn: Boolean = false,
+    val workHours: Schedule = Schedule(weekdays = Window(true, 9 * 60, 18 * 60), saturday = Window(false, 10 * 60, 14 * 60), sunday = Window(false, 10 * 60, 14 * 60)),
+    val overtimeFactor: Double = 1.5,
+    /** Invoiced or not: «only not invoiced» in the export, then marked as invoiced. */
+    val billedOn: Boolean = false,
+    /** The PDF as a timesheet with your logo and details. */
+    val timesheetOn: Boolean = false,
+    val sheetName: String = "",
+    val sheetDetails: String = "",
+    /** A POST (JSON) to your own n8n (or any) URL after every card. */
+    val webhookOn: Boolean = false,
+    val webhookUrl: String = "",
+    /** Viber / WhatsApp calls, from their notifications (approximate). */
+    val voipOn: Boolean = false,
+    /** Lock with fingerprint or PIN. */
+    val lockOn: Boolean = false,
+    /** Greeklish counts as Greek when matching («Papadopoulos» = «Παπαδόπουλος»). */
+    val greeklish: Boolean = true,
     val reminders: ReminderSettings = ReminderSettings(),
     val categories: List<String> = DEFAULT_CATEGORIES,
     /** Customer list: "file", "url", "drive" or "" (by hand). */
@@ -186,6 +212,10 @@ data class Data(
     val rules: List<NumberRule> = emptyList(),
     val reminders: List<Reminder> = emptyList(),
     val settings: Settings = Settings(),
+    /** Calls waiting to be sent to the webhook (sent again if it failed). */
+    val pendingHooks: List<Long> = emptyList(),
+    /** company id → the month («2026-11») its package alert was shown. */
+    val packageAlerted: Map<String, String> = emptyMap(),
 ) {
     fun company(id: String?) = id?.let { i -> companies.firstOrNull { it.id == i } }
     fun rule(key: String) = rules.firstOrNull { it.key == key }

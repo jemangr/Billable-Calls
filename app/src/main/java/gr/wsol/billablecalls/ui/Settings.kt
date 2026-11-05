@@ -155,6 +155,7 @@ fun MatchSection(d: Data) {
             Text(t("Διαχωριστικό", "Separator"), style = MaterialTheme.typography.titleSmall)
             Choice(listOf(Separator.ANY to t("Οποιοδήποτε", "Any"), Separator.DASH to "-", Separator.SPACE to t("κενό", "space"), Separator.PIPE to "|", Separator.SLASH to "/", Separator.COMMA to ",", Separator.PAREN to "( )"), s.separator) { v -> Store.update { Ops.rematch(it.copy(settings = it.settings.copy(separator = v))) } }
         }
+        SwitchRow("Greeklish", s.greeklish, t("«Papadopoulos» = «Παπαδόπουλος». Τα ονόματα που μοιάζουν (π.χ. ορθογραφικό λάθος) βγαίνουν μόνο ως πρόταση.", "«Papadopoulos» = «Παπαδόπουλος». Names that look alike (e.g. a typo) are only suggested.")) { v -> Store.update { Ops.rematch(it.copy(settings = it.settings.copy(greeklish = v))) } }
         val sample = d.calls.filter { !it.contact.isNullOrBlank() }.distinctBy { it.key }.takeLast(6)
         if (sample.isNotEmpty() && d.companies.isNotEmpty()) {
             Muted(t("Δείγμα από τις κλήσεις σου:", "Sample from your calls:"))
@@ -386,6 +387,9 @@ fun SettingsScreen() {
             ReminderSection(d)
             SimSection(d)
             CategorySection(d)
+            ProSection(d)
+            BatterySection()
+            HistorySection()
             BackupSection(d)
             UpdateSection(d)
             SectionCard(t("Απόρρητο", "Privacy")) {

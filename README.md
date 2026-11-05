@@ -29,6 +29,14 @@
 - **Υπενθυμίσεις** για αναπάντητες και για εξερχόμενες χωρίς απάντηση, στο δικό σου ωράριο (Δευ–Παρ, Σάββατο, Κυριακή, ώρες χωρίς υπενθυμίσεις). Σταματούν όταν μιλήσετε, μετά από Ν φορές, μετά από χρόνο ή με το «Αγνόησε», ό,τι έρθει πρώτο.
 - **Export** σε Excel, CSV ή PDF, ανά εταιρεία ή για όλες, με κοινοποίηση ή κατευθείαν στο Google Drive.
 - **Λίστα πελατών** από αρχείο CSV/Excel, από link ή από Google Drive. **Backup** κάθε μέρα στο Google Drive ή σε αρχείο.
+- **Επαγγελματικά** (το καθένα ανοίγει και κλείνει χωριστά):
+  - συμβόλαια με πακέτο ωρών τον μήνα,
+  - εκτός ωραρίου ×1.5,
+  - τιμολογημένες και μη,
+  - PDF timesheet με το λογότυπό σου,
+  - webhook προς n8n,
+  - κλήσεις Viber/WhatsApp,
+  - κλείδωμα με δαχτυλικό ή PIN.
 
 <a id="english"></a>
 
@@ -44,6 +52,14 @@ Billable Calls reads your phone's call log and turns calls with customers into b
 - **Two SIMs:** choose which one counts.
 - **Export** to Excel, CSV or PDF, per company or for everyone, by share or straight to Google Drive.
 - **Customer list** from a CSV/XLSX file, a link or Google Drive. **Daily backup** to Google Drive or to a file.
+- **Professional options** (each on/off):
+  - monthly hour packages per company,
+  - out-of-hours ×1.5,
+  - invoiced/not invoiced,
+  - a PDF timesheet with your logo,
+  - a webhook (n8n),
+  - Viber/WhatsApp calls,
+  - a fingerprint/PIN lock.
 - Greek and English. Automatic updates from GitHub releases.
 
 **Everything stays on your phone.** No server, no ads, no tracking. See [PRIVACY.md](PRIVACY.md).

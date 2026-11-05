@@ -33,22 +33,26 @@ object Matcher {
     data class Result(val companyId: String?, val how: How, val suggestions: List<String> = emptyList())
 
     /** The keys (normalized name and aliases) of every company. */
-    fun index(companies: List<Company>): Map<String, Set<String>> {
+    fun index(companies: List<Company>, key: (String) -> String = ::norm): Map<String, Set<String>> {
         val m = HashMap<String, MutableSet<String>>()
         for (c in companies) for (n in listOf(c.name) + c.aliases) {
-            val k = norm(n); if (k.length >= 2) m.getOrPut(k) { mutableSetOf() } += c.id
+            val k = key(n); if (k.length >= 2) m.getOrPut(k) { mutableSetOf() } += c.id
         }
         return m
     }
 
+    private val latin: (String) -> String = { Greeklish.skeleton(norm(it)) }
+
     fun match(contact: String?, org: String?, companies: List<Company>, s: Settings, idx: Map<String, Set<String>> = index(companies)): Result {
         if (companies.isEmpty()) return Result(null, How.NONE)
-        if (s.matchMode != MatchMode.NAME && !org.isNullOrBlank()) {
-            sure(norm(org), idx, whole = true)?.let { return Result(it, How.COMPANY_FIELD) }
+        fun tryWith(ix: Map<String, Set<String>>, key: (String) -> String): Result? {
+            if (s.matchMode != MatchMode.NAME && !org.isNullOrBlank()) sure(key(org), ix, whole = true)?.let { return Result(it, How.COMPANY_FIELD) }
+            if (s.matchMode != MatchMode.COMPANY_FIELD && !contact.isNullOrBlank()) fromName(contact, s, ix, key)?.let { return Result(it, How.NAME) }
+            return null
         }
-        if (s.matchMode != MatchMode.COMPANY_FIELD && !contact.isNullOrBlank()) {
-            fromName(contact, s, idx)?.let { return Result(it, How.NAME) }
-        }
+        tryWith(idx, ::norm)?.let { return it }
+        // greeklish: the same, on the Latin skeleton of both sides
+        if (s.greeklish) tryWith(index(companies, latin), latin)?.let { return it }
         return Result(null, How.NONE, suggest(listOfNotNull(org, contact), companies, idx))
     }
 
@@ -64,7 +68,7 @@ object Matcher {
         return ids.singleOrNull()
     }
 
-    private fun fromName(name: String, s: Settings, idx: Map<String, Set<String>>): String? {
+    private fun fromName(name: String, s: Settings, idx: Map<String, Set<String>>, key: (String) -> String = ::norm): String? {
         val before = s.namePosition == NamePosition.BEFORE
         val seps = if (s.separator == Separator.ANY) Separator.entries.filter { it != Separator.ANY && it != Separator.SPACE } else listOf(s.separator)
         for (sep in seps) {
@@ -72,11 +76,11 @@ object Matcher {
             val parts = splitBy(name, sep)
             if (parts.size >= 2) {
                 val part = if (before) parts.first() else parts.last()
-                sure(norm(part), idx, whole = true)?.let { return it }
+                sure(key(part), idx, whole = true)?.let { return it }
             }
         }
         // No separator (or a space): the company is the first (or last) words of the name.
-        val k = norm(name)
+        val k = key(name)
         sure(k, idx, whole = true)?.let { return it }
         return sure(k, idx, whole = false, atStart = before)
     }
@@ -93,11 +97,17 @@ object Matcher {
     /** «(ΑΒΓ) Νίκος»: the bracket comes first. */
     private fun s0(name: String) = name.trim().startsWith("(")
 
-    /** Companies that share a word with the contact, for the «which company?» list. */
+    /**
+     * Companies for the «which company?» list: they share a word with the contact, or are written
+     * almost the same (a typo, greeklish): only suggested, never matched by themselves.
+     */
     fun suggest(texts: List<String>, companies: List<Company>, idx: Map<String, Set<String>>): List<String> {
         val words = texts.flatMap { norm(it).split(' ') }.filter { it.length >= 3 }.toSet()
         if (words.isEmpty()) return emptyList()
-        return idx.entries.filter { (k, _) -> k.split(' ').any { it in words } }.flatMap { it.value }.distinct().take(5)
+        val byWord = idx.entries.filter { (k, _) -> k.split(' ').any { it in words } }.flatMap { it.value }
+        val sk = words.map { Greeklish.skeleton(it) }
+        val close = companies.filter { c -> (listOf(c.name) + c.aliases).any { n -> Greeklish.skeleton(norm(n)).split(' ').any { w -> w.length >= 3 && sk.any { Greeklish.similarity(it, w) >= 0.8 } } } }.map { it.id }
+        return (byWord + close).distinct().take(5)
     }
 }
 

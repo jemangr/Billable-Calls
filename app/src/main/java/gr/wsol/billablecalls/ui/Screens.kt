@@ -128,7 +128,12 @@ fun CompaniesScreen(onOpen: (String) -> Unit) {
                         Text(c.name, fontWeight = FontWeight.SemiBold)
                         if (c.aliases.isNotEmpty()) Muted(c.aliases.joinToString(" · "))
                     }
-                    if (tt != null) Column(horizontalAlignment = Alignment.End) { Text(Billing.hms(tt.billableSec), fontWeight = FontWeight.Bold); Muted(t("${tt.calls} κλήσεις", "${tt.calls} calls")) }
+                    val st = gr.wsol.billablecalls.core.Packages.state(d, c)
+                    if (tt != null || st != null) Column(horizontalAlignment = Alignment.End) {
+                        Text(Billing.hms(tt?.billableSec ?: 0), fontWeight = FontWeight.Bold)
+                        if (st != null) Muted(if (st.overSec > 0) t("πακέτο +${Billing.nice(st.overSec)}", "package +${Billing.nice(st.overSec)}") else t("απομένουν ${Billing.nice(st.leftSec)}", "${Billing.nice(st.leftSec)} left"))
+                        else Muted(t("${tt?.calls ?: 0} κλήσεις", "${tt?.calls ?: 0} calls"))
+                    }
                 }
                 HorizontalDivider()
             }
@@ -167,6 +172,16 @@ fun CompanyScreen(id: String, onCall: (Long) -> Unit, onBack: () -> Unit) {
                 MinPicker(c.minSec, general = true) { v -> Store.update { Ops.saveCompany(it, c.copy(minSec = v)) } }
                 Text(t("Στρογγύλεμα προς τα πάνω", "Round up to"), style = MaterialTheme.typography.titleSmall)
                 RoundPicker(c.roundMin, general = true) { v -> Store.update { Ops.saveCompany(it, c.copy(roundMin = v)) } }
+            }
+            if (d.settings.packagesOn) SectionCard(t("Συμβόλαιο: ώρες τον μήνα", "Contract: hours per month"), t("Ο χρεώσιμος χρόνος αφαιρείται από το πακέτο· ειδοποίηση όταν ξεπεραστεί.", "Billable time comes off the package; a notification when it's exceeded.")) {
+                Presets(listOf(0, 2, 5, 10, 20), (c.packageMin ?: 0) / 60, { if (it == 0) t("Χωρίς", "None") else t("$it ώρ.", "${it}h") }, t("Ώρες", "Hours")) { h ->
+                    Store.update { Ops.saveCompany(it, c.copy(packageMin = (h * 60).takeIf { m -> m > 0 })) }
+                }
+                gr.wsol.billablecalls.core.Packages.state(d, c)?.let { st ->
+                    Text(t("Αυτόν τον μήνα: ", "This month: ") + Billing.nice(st.usedSec) + t(" από ", " of ") + Billing.nice(st.includedSec) +
+                        if (st.overSec > 0) t(" · πάνω από το πακέτο ", " · over by ") + Billing.nice(st.overSec) else t(" · απομένουν ", " · left ") + Billing.nice(st.leftSec),
+                        color = if (st.overSec > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
+                }
             }
             Row(Modifier.padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 listOf(Range.MONTH, Range.LAST_MONTH, Range.ALL).forEach { r -> FilterChip(range == r, { range = r }, label = { Text(r.label()) }) }
@@ -213,12 +228,21 @@ fun ExportDialog(company: Company?, start: Range = Range.MONTH, onDismiss: () ->
     var fmt by remember { mutableStateOf(Format.XLSX) }
     var busy by remember { mutableStateOf(false) }
     val d = Store.data
+    // invoiced or not (when on): only the calls not invoiced yet, then mark them invoiced
+    var unbilled by remember { mutableStateOf(d.settings.billedOn) }
+    var mark by remember { mutableStateOf(d.settings.billedOn) }
+    fun ids(p: Period) = Export.calls(Store.data, p, company?.id, onlyUnbilled = unbilled).map { it.id }.toSet()
+    fun done(p: Period, list: Set<Long>) { if (d.settings.billedOn && mark) Store.update { Export.markBilled(it, list) } }
     AlertDialog(onDismissRequest = onDismiss, title = { Text("Export · " + (company?.name ?: t("όλες οι εταιρείες", "all companies"))) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Choice(listOf(Range.TODAY, Range.WEEK, Range.MONTH, Range.LAST_MONTH, Range.ALL).map { it to it.label() }, range) { range = it }
                 Choice(listOf(Format.XLSX to "Excel", Format.CSV to "CSV", Format.PDF to "PDF"), fmt) { fmt = it }
-                Muted(t("${Export.calls(d, range.period(), company?.id).size} εταιρικές κλήσεις", "${Export.calls(d, range.period(), company?.id).size} business calls"))
+                if (d.settings.billedOn) {
+                    SwitchRow(t("Μόνο μη τιμολογημένες", "Only not invoiced"), unbilled) { unbilled = it }
+                    SwitchRow(t("Σημείωσέ τες «τιμολογήθηκαν»", "Mark them «invoiced»"), mark) { mark = it }
+                }
+                Muted(t("${ids(range.period()).size} εταιρικές κλήσεις", "${ids(range.period()).size} business calls"))
                 if (busy) Muted(t("Ετοιμάζεται…", "Working…"))
             }
         },
@@ -228,8 +252,9 @@ fun ExportDialog(company: Company?, start: Range = Range.MONTH, onDismiss: () ->
                 scope.launch {
                     val p = range.period()
                     val sims = Sims.list(ctx).mapIndexed { i, (id, label) -> id to "SIM ${i + 1} ($label)" }.toMap()
-                    val bytes = withContext(Dispatchers.Default) { Files.export(Store.data, p, company, fmt, sims) }
-                    Files.share(ctx, Export.fileName(p, company, fmt.ext), fmt.mime, bytes); busy = false; onDismiss()
+                    val list = ids(p)
+                    val bytes = withContext(Dispatchers.Default) { Files.export(Store.data, p, company, fmt, sims, unbilled, Files.logo(ctx)) }
+                    Files.share(ctx, Export.fileName(p, company, fmt.ext), fmt.mime, bytes); done(p, list); busy = false; onDismiss()
                 }
             }) { Text(t("Κοινοποίηση", "Share")) }
         },
@@ -243,7 +268,8 @@ fun ExportDialog(company: Company?, start: Range = Range.MONTH, onDismiss: () ->
                             runCatching {
                                 val tok = Drive.token(ctx) ?: error(t("Σύνδεσε ξανά το Google (Ρυθμίσεις).", "Sign in to Google again (Settings)."))
                                 val folder = Drive.folder(tok, Store.settings.driveFolderId)
-                                Drive.upload(tok, folder, Export.fileName(p, company, fmt.ext), fmt.mime, Files.export(Store.data, p, company, fmt))
+                                val list = ids(p)
+                                Drive.upload(tok, folder, Export.fileName(p, company, fmt.ext), fmt.mime, Files.export(Store.data, p, company, fmt, emptyMap(), unbilled, Files.logo(ctx))).also { done(p, list) }
                             }
                         }
                         Toast.makeText(ctx, if (r.isSuccess) t("Αποθηκεύτηκε στο Drive, φάκελος «Billable Calls».", "Saved to Drive, folder «Billable Calls».") else r.exceptionOrNull()?.message ?: "Error", Toast.LENGTH_LONG).show()

@@ -1,8 +1,38 @@
-# Billable Calls
+<p align="center"><img src="docs/logo.png" width="120" alt="Billable Calls logo"></p>
 
-[![Build](https://github.com/jemangr/Billable-Calls/actions/workflows/build.yml/badge.svg)](https://github.com/jemangr/Billable-Calls/actions/workflows/build.yml)
+<h1 align="center">Billable Calls</h1>
 
-**[⬇ Download the APK](https://github.com/jemangr/Billable-Calls/releases/latest/download/BillableCalls.apk)** · Android 10 or newer
+<p align="center"><b>Οι κλήσεις με τους πελάτες σου, ανά εταιρεία, σε χρεώσιμο χρόνο.</b><br>
+Όλα μένουν στο κινητό σου. Χωρίς server, χωρίς λογαριασμό, χωρίς διαφημίσεις.</p>
+
+<p align="center">
+  <a href="https://github.com/jemangr/Billable-Calls/releases/latest/download/BillableCalls.apk"><img src="https://img.shields.io/badge/Download-APK-1F5EFF?style=for-the-badge&logo=android&logoColor=white" width="230" alt="Download APK"></a>
+</p>
+
+<p align="center">Android 10+ · δύο SIM · ελληνικά και English · ανοιχτός κώδικας (MIT) · αυτόματες ενημερώσεις · <a href="https://platebit.app/bill">platebit.app/bill</a></p>
+
+<p align="center">
+<img src="docs/screenshots/01-today.png" width="190" alt="Σήμερα">
+<img src="docs/screenshots/02-calls.png" width="190" alt="Εταιρικές κλήσεις">
+<img src="docs/screenshots/07-card.png" width="190" alt="Κάρτα μετά την κλήση">
+<img src="docs/screenshots/05-missed.png" width="190" alt="Αναπάντητες">
+</p>
+
+*[English below](#english)*
+
+## Τι κάνει
+
+- **Βρίσκει την εταιρεία κάθε κλήσης:** από το πεδίο «Εταιρεία» της επαφής, ή από το όνομα (η εταιρεία πριν ή μετά το όνομα του υπαλλήλου, με όποιο διαχωριστικό). Αυτόματα μόνο όταν είναι σίγουρο.
+- **Καταγράφει** έναρξη, λήξη και διάρκεια. **Χρεώσιμος χρόνος** με ελάχιστη διάρκεια (1′, 5′, 10′, 15′ ή δική σου) και στρογγύλεμα προς τα πάνω, και ανά εταιρεία.
+- **Κάρτα στο τέλος κάθε κλήσης:** εταιρική ή όχι, ποια εταιρεία, θέμα και σημείωση.
+- **Λίστες «Εταιρικές» και «Άλλες»** με πρώτη στήλη το όνομα της επαφής. Μετακινείς κλήσεις από τη μία στην άλλη με ένα πάτημα.
+- **Υπενθυμίσεις** για αναπάντητες και για εξερχόμενες χωρίς απάντηση, στο δικό σου ωράριο (Δευ–Παρ, Σάββατο, Κυριακή, ώρες χωρίς υπενθυμίσεις). Σταματούν όταν μιλήσετε, μετά από Ν φορές, μετά από χρόνο ή με το «Αγνόησε», ό,τι έρθει πρώτο.
+- **Export** σε Excel, CSV ή PDF, ανά εταιρεία ή για όλες, με κοινοποίηση ή κατευθείαν στο Google Drive.
+- **Λίστα πελατών** από αρχείο CSV/Excel, από link ή από Google Drive. **Backup** κάθε μέρα στο Google Drive ή σε αρχείο.
+
+<a id="english"></a>
+
+## English
 
 Billable Calls reads your phone's call log and turns calls with customers into billable time per company.
 
@@ -17,12 +47,6 @@ Billable Calls reads your phone's call log and turns calls with customers into b
 - Greek and English. Automatic updates from GitHub releases.
 
 **Everything stays on your phone.** No server, no ads, no tracking. See [PRIVACY.md](PRIVACY.md).
-
-| Today | Business calls | Other calls |
-|---|---|---|
-| ![](docs/screenshots/01-today.png) | ![](docs/screenshots/02-calls.png) | ![](docs/screenshots/03-calls-other.png) |
-| **After-call card** | **Missed calls** | **Settings** |
-| ![](docs/screenshots/07-card.png) | ![](docs/screenshots/05-missed.png) | ![](docs/screenshots/06-settings.png) |
 
 ## Customer list
 

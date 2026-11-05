@@ -55,6 +55,18 @@ class SyncTest {
         assertEquals(0, CallSync.merge(d, raw, src, now).added.size)
     }
 
+    /** 1.3.0 closed when the daily backup was turned on: the network constraint needs ACCESS_NETWORK_STATE. */
+    @Test fun dailyBackupJobWithNetwork() {
+        val ctx = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        val perms = ctx.packageManager.getPackageInfo(ctx.packageName, android.content.pm.PackageManager.GET_PERMISSIONS).requestedPermissions.orEmpty().toList()
+        assertTrue(android.Manifest.permission.ACCESS_NETWORK_STATE in perms)
+        Store.inMemory(base.copy(settings = base.settings.copy(autoBackup = true, driveFolderId = "f")))
+        gr.wsol.billablecalls.sys.Jobs.schedule(ctx)
+        val js = ctx.getSystemService(android.app.job.JobScheduler::class.java)
+        val job = js.getPendingJob(gr.wsol.billablecalls.sys.Jobs.BACKUP)
+        assertTrue(job != null && job.networkType == android.app.job.JobInfo.NETWORK_TYPE_ANY)
+    }
+
     @Test fun defaultTopicOnNewBusinessCalls() {
         val raw = listOf(RawCall(10, "+306971111111", CallLog.Calls.INCOMING_TYPE, now - 600_000, 300, null), RawCall(11, "699", CallLog.Calls.INCOMING_TYPE, now - 500_000, 300, null))
         val d = CallSync.merge(base, raw, src, now).data

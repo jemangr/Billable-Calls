@@ -1,3 +1,7 @@
+## Billable Calls 1.3.1
+
+- **Fix:** the app closed when the daily Drive backup was turned on, or on screens that set up the background jobs (Android needs a network permission for a job that waits for the internet). It no longer closes, and the backup runs when there is a network.
+
 ## Billable Calls 1.3
 
 - **Before you answer:** while the phone rings, a small card shows the company, what's left of its package, the last topics and notes, and the open actions. It needs «display over other apps».

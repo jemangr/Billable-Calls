@@ -45,7 +45,12 @@ object Jobs {
         if (js.getPendingJob(PERIODIC) == null) js.schedule(JobInfo.Builder(PERIODIC, cn).setPeriodic(15 * 60_000L).setPersisted(true).build())
         val s = Store.settings
         if (s.autoBackup && s.driveFolderId.isNotEmpty()) {
-            if (js.getPendingJob(BACKUP) == null) js.schedule(JobInfo.Builder(BACKUP, cn).setPeriodic(24 * 3600_000L).setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY).setPersisted(true).build())
+            if (js.getPendingJob(BACKUP) == null) {
+                val daily = JobInfo.Builder(BACKUP, cn).setPeriodic(24 * 3600_000L).setPersisted(true)
+                // with a network if Android allows the constraint; never a crash for it (1.3.0 closed here)
+                runCatching { js.schedule(daily.setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY).build()) }
+                    .onFailure { runCatching { js.schedule(daily.setRequiredNetworkType(JobInfo.NETWORK_TYPE_NONE).build()) } }
+            }
         } else js.cancel(BACKUP)
     }
 }

@@ -107,9 +107,12 @@ object Hud {
             hint = t("Σημείωση όσο μιλάτε…", "Note while you talk…")
             setHintTextColor(0xFF8F95A3.toInt()); setTextColor(0xFFFFFFFF.toInt()); setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
             inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
-            // 1.3.6: always 4 lines; more text scrolls up and down inside the field
+            // 1.3.6: always 4 lines; more text scrolls up and down inside the field.
+            // 1.3.7: no visible scrollbar: the card is built with the app context (no theme), so Android has no
+            // scrollbar drawable and crashed while drawing it (NPE in View.onDrawScrollBars, Samsung S25 Ultra, Android 17).
+            // The text still scrolls; it just has no bar.
             minLines = 4; maxLines = 4; gravity = Gravity.TOP or Gravity.START
-            isVerticalScrollBarEnabled = true; isScrollbarFadingEnabled = false; scrollBarStyle = View.SCROLLBARS_INSIDE_INSET
+            isVerticalScrollBarEnabled = false
             background = GradientDrawable().apply { cornerRadius = dp(12f).toFloat(); setColor(0xFF23252B.toInt()); setStroke(dp(1f), 0xFF3A3F4A.toInt()) }
             setPadding(dp(12f), dp(10f), dp(12f), dp(10f))
             // tapping the field: the card takes the keyboard

@@ -1,3 +1,7 @@
+## Billable Calls 1.3.7
+
+- **Fix:** in 1.3.6 the app closed («keeps stopping») when the «before you answer» card opened. The note field still scrolls, but without a visible scrollbar.
+
 ## Billable Calls 1.3.6
 
 - **The note on the «before you answer» card** always shows 4 lines. Longer text scrolls up and down inside the field.

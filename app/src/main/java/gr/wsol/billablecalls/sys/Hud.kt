@@ -29,9 +29,10 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * Before you answer: while the phone rings, a small card at the top with the company, what's left of
- * its package, the last topics and notes, and the open actions. Tap it to close; it goes away when
- * the call is answered (after a few seconds) or ends.
+ * Before you answer: while the phone rings, a card in the middle of the screen with the company, what's left of
+ * its package, the last notes, and the open actions (1.3.4: Giannis 6/11 «στη μέση της οθόνης, να μετακινείται,
+ * να μένει και μετά την απάντηση μέχρι το κλείσιμο»). Drag it up or down (the place is kept for the next call);
+ * it stays while you talk and goes when the call ends, or with its «✕».
  */
 object Hud {
     /** Every card on the screen (normally one): all of them go together, so none is left behind. */
@@ -39,6 +40,8 @@ object Hud {
     @Volatile private var shownFor: String? = null
     @Volatile private var shownAt = 0L
     private val main by lazy { Handler(Looper.getMainLooper()) }
+    /** Only a safety net, if the phone never says the call ended: the ✕ closes it anyway. */
+    private const val SAFETY_MS = 3 * 60 * 60_000L
     private val timeout = Runnable { removeAll() }
 
     /** The lines for [number], or null if there's nothing to say (not a customer, no history). */
@@ -89,10 +92,24 @@ object Hud {
             runCatching {
                 removeAll()
                 val dp = { v: Float -> TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v, context.resources.displayMetrics).toInt() }
+                val wm = context.getSystemService(WindowManager::class.java)
+                val screenH = context.resources.displayMetrics.heightPixels
+                val maxOff = (screenH / 2 - dp(90f)).coerceAtLeast(0)
+                val lp = WindowManager.LayoutParams(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.WRAP_CONTENT,
+                    WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED,
+                    PixelFormat.TRANSLUCENT).apply {
+                    // y is the distance from the middle of the screen (gravity CENTER_VERTICAL)
+                    gravity = Gravity.CENTER_VERTICAL; x = 0; y = dp(Store.settings.hudOffsetDp.toFloat()).coerceIn(-maxOff, maxOff); horizontalMargin = 0.03f
+                }
                 val box = FrameLayout(context).apply {
                     background = GradientDrawable().apply { cornerRadius = dp(18f).toFloat(); setColor(0xF0151619.toInt()); setStroke(dp(1f), 0xFF8FB0FF.toInt()) }
                     addView(LinearLayout(context).apply {
-                        orientation = LinearLayout.VERTICAL; setPadding(dp(16f), dp(12f), dp(40f), dp(12f))
+                        orientation = LinearLayout.VERTICAL; setPadding(dp(16f), dp(10f), dp(48f), dp(12f))
+                        // the handle: shows that the card moves
+                        addView(TextView(context).apply {
+                            text = "⠿  " + t("σύρε πάνω ή κάτω", "drag up or down"); setTextColor(0xFF8F95A3.toInt()); setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+                        })
                         lines.forEachIndexed { i, l ->
                             addView(TextView(context).apply {
                                 text = l; setTextColor(if (i == 0) 0xFFFFFFFF.toInt() else 0xFFD5D8E0.toInt())
@@ -101,22 +118,34 @@ object Hud {
                             })
                         }
                     })
-                    // the ✕ in the corner
+                    // the ✕ in the corner: the only way to close it by hand
                     addView(TextView(context).apply {
-                        text = "✕"; setTextColor(0xFFFFFFFF.toInt()); setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
+                        text = "✕"; setTextColor(0xFFFFFFFF.toInt()); setTextSize(TypedValue.COMPLEX_UNIT_SP, 20f)
                         gravity = Gravity.CENTER; contentDescription = t("Κλείσιμο", "Close")
                         setOnClickListener { removeAll() }
-                    }, FrameLayout.LayoutParams(dp(44f), dp(44f), Gravity.TOP or Gravity.END))
-                    setOnClickListener { removeAll() }
+                    }, FrameLayout.LayoutParams(dp(48f), dp(48f), Gravity.TOP or Gravity.END))
+                    // drag up or down; the place is kept for the next call
+                    var startRaw = 0f; var startY = 0
+                    setOnTouchListener { v, e ->
+                        when (e.actionMasked) {
+                            android.view.MotionEvent.ACTION_DOWN -> { startRaw = e.rawY; startY = lp.y; true }
+                            android.view.MotionEvent.ACTION_MOVE -> {
+                                lp.y = (startY + (e.rawY - startRaw).toInt()).coerceIn(-maxOff, maxOff)
+                                runCatching { wm.updateViewLayout(v, lp) }; true
+                            }
+                            android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
+                                val off = (lp.y / context.resources.displayMetrics.density).toInt()
+                                if (off != Store.settings.hudOffsetDp) Store.settings { it.copy(hudOffsetDp = off) }
+                                true
+                            }
+                            else -> false
+                        }
+                    }
                 }
-                val lp = WindowManager.LayoutParams(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.WRAP_CONTENT,
-                    WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED,
-                    PixelFormat.TRANSLUCENT).apply { gravity = Gravity.TOP; x = 0; y = dp(70f); horizontalMargin = 0.03f }
-                context.getSystemService(WindowManager::class.java).addView(box, lp)
+                wm.addView(box, lp)
                 views += box
                 main.removeCallbacks(timeout)
-                main.postDelayed(timeout, 60_000)
+                main.postDelayed(timeout, SAFETY_MS)
             }.onFailure { Report.note("hud", it.toString()) }
         }
     }
@@ -133,21 +162,18 @@ object Hud {
         main.post { removeAll(); synchronized(this) { shownFor = null; shownAt = 0L } }
     }
 
-    /** Answered: the card stays a few seconds, then goes. */
-    fun hideIn(ms: Long) { main.postDelayed({ removeAll() }, ms) }
 
     /** For the tests. */
     internal fun count() = views.size
 }
 
-/** The phone's call state: ringing → the card before you answer; answered → it goes after a few seconds; ended → gone. */
+/** The phone's call state: ringing → the card before you answer; answered → it stays while you talk; ended → gone. */
 class PhoneStateReceiver : BroadcastReceiver() {
     @Suppress("DEPRECATION")
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != TelephonyManager.ACTION_PHONE_STATE_CHANGED) return
         when (intent.getStringExtra(TelephonyManager.EXTRA_STATE)) {
             TelephonyManager.EXTRA_STATE_RINGING -> intent.getStringExtra(TelephonyManager.EXTRA_INCOMING_NUMBER)?.let { Hud.show(context.applicationContext, it) }
-            TelephonyManager.EXTRA_STATE_OFFHOOK -> Hud.hideIn(8_000)
             TelephonyManager.EXTRA_STATE_IDLE -> Hud.hide()
         }
     }

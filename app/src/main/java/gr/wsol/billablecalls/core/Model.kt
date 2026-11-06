@@ -188,6 +188,8 @@ data class Settings(
     val cardStyle: CardStyle = CardStyle.OVERLAY,
     /** While it rings: a small card with the company, its package, last topics and open actions. */
     val hudOn: Boolean = true,
+    /** Where you dragged the «before you answer» card: dp from the middle of the screen (0 = the middle). */
+    val hudOffsetDp: Int = 0,
     val instantCard: Boolean = false,
     /** The topic a new business call gets (and the card starts with); "" = none. */
     val defaultCategory: String = "Υποστήριξη",

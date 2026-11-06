@@ -1,3 +1,10 @@
+## Billable Calls 1.3.4
+
+- **The «before you answer» card** now opens in the middle of the screen.
+  - You can drag it up or down. It opens in the same place on the next call.
+  - It stays on screen after you answer, until the call ends.
+  - You close it by hand with the «✕».
+
 ## Billable Calls 1.3.3
 
 - **Fix:** the «before you answer» card sometimes stayed on the screen and wouldn't close. Now only one card shows per call. It closes with a tap or the «✕», when the call ends, or after 60″ at most.

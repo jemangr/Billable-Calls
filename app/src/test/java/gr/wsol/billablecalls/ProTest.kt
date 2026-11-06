@@ -113,4 +113,22 @@ class ProTest {
         assertTrue(lines[0].contains("ΑΒΓ")); assertTrue(lines.any { it.contains("Exchange") }); assertTrue(lines.any { it.contains("προσφορά") }); assertTrue(lines.any { it.contains("Πακέτο") })
         assertNull(gr.wsol.billablecalls.sys.Hud.lines(d, "6999999999", null, null))
     }
+
+    @Test fun beforeYouAnswerNotes() {
+        val calls = listOf(
+            call(1, ms(1, 10), 600, key = "6971111111").copy(note = "Παλιά σημείωση"),
+            call(2, ms(2, 10), 600, key = "2101111111").copy(note = "Από άλλο νούμερο της εταιρείας"),
+            call(3, ms(3, 10), 600, key = "6971111111"),
+            call(4, ms(4, 10), 600, key = "6971111111").copy(note = "Νέα σημείωση"),
+        )
+        val d = Data(companies = listOf(a), calls = calls)
+        val notes = gr.wsol.billablecalls.sys.Hud.notes(d, "a")
+        // the 2 latest notes of the whole company, newest first, with date and topic, no repeats
+        assertEquals(listOf("• 04/11 · Υποστήριξη · «Νέα σημείωση»", "• 02/11 · Υποστήριξη · «Από άλλο νούμερο της εταιρείας»"), notes)
+        assertEquals(notes.size, notes.toSet().size)
+        // no notes at all: the last call
+        val none = Data(companies = listOf(a), calls = calls.map { it.copy(note = "") })
+        assertEquals(listOf("Τελευταία κλήση: 04/11 · Υποστήριξη · χωρίς σημείωση"), gr.wsol.billablecalls.sys.Hud.notes(none, "a"))
+        assertTrue(gr.wsol.billablecalls.sys.Hud.notes(Data(companies = listOf(a)), "a").isEmpty())
+    }
 }

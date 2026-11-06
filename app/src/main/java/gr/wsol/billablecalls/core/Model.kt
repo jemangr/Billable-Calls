@@ -163,6 +163,12 @@ data class ReminderSettings(
     /** Minutes after the missed call. */
     val maxMinutes: Int = 24 * 60,
     val snoozeMin: Int = 60,
+    /** The notification's sound: on/off and which one (null = the phone's default notification sound). */
+    val sound: Boolean = true,
+    val soundUri: String? = null,
+    val vibrate: Boolean = true,
+    /** Android doesn't let an app change a channel's sound, so each change gets a new channel. */
+    val channelVer: Int = 1,
 )
 
 @Serializable

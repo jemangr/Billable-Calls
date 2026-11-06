@@ -2,6 +2,7 @@
 
 package gr.wsol.billablecalls.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -73,12 +74,35 @@ fun CallCardContent(callId: Long, counter: String? = null, onDone: () -> Unit) {
     var todo by remember(callId) { mutableStateOf(open != null) }
     var todoText by remember(callId) { mutableStateOf(open?.text.orEmpty()) }
     var remindAt by remember(callId) { mutableStateOf(open?.at) }
+    // Viber/WhatsApp calls have no number to dial
+    val dialable = call.number.isNotBlank() && call.sim !in gr.wsol.billablecalls.core.Voip.APPS.values && !call.number.startsWith("voip:")
+    var asking by remember(callId) { mutableStateOf(false) }
+
+    val canSave = !business || companyId != null
+    fun save() {
+        saveCard(call, business, companyId, forNumber, category, billable, note)
+        if (business) Store.update { x ->
+            var y = Ops.merge(x, call.id, if (merge) mergeWith?.id else null)
+            y = Ops.edit(y, call.id) { it.copy(onsite = onsite) }
+            if (todo && (todoText.isNotBlank() || remindAt != null)) y = Ops.addFollowUp(y, gr.wsol.billablecalls.core.FollowUp(
+                Ops.newId(), companyId, call.id, call.number.takeIf { call.sim !in gr.wsol.billablecalls.core.Voip.APPS.values }, call.label,
+                todoText.trim().ifBlank { note.trim() }, remindAt, created = System.currentTimeMillis()))
+            y
+        }
+        gr.wsol.billablecalls.sys.Alarms.schedule(ctx)
+        gr.wsol.billablecalls.sys.Webhook.flushLater(ctx)
+    }
 
     Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(call.label, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                Muted("${if (call.contact != null) call.number + " · " else ""}${Export.direction(call.direction)} · ${dayHm(call.start)}–${hm(call.end)} · ${Billing.hms(call.durationSec)}")
+                // without a contact the title is the number: then the title is the one you tap
+                Text(call.label, if (dialable && call.contact == null) Modifier.clickable { asking = true } else Modifier,
+                    style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold,
+                    color = if (dialable && call.contact == null) MaterialTheme.colorScheme.primary else androidx.compose.ui.graphics.Color.Unspecified)
+                if (dialable && call.contact != null) Text(call.number, Modifier.clickable { asking = true }, color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.bodyMedium.copy(textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline))
+                Muted("${if (call.contact != null && !dialable) call.number + " · " else ""}${Export.direction(call.direction)} · ${dayHm(call.start)}–${hm(call.end)} · ${Billing.hms(call.durationSec)}")
             }
             counter?.let { Muted(it) }
         }
@@ -151,21 +175,24 @@ fun CallCardContent(callId: Long, counter: String? = null, onDone: () -> Unit) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
             OutlinedButton(onClick = { Store.update { Ops.edit(it, call.id) { c -> c.copy(reviewed = true) } }; onDone() }) { Text(t("Παράλειψη", "Skip")) }
             Spacer(Modifier.width(8.dp))
-            Button(onClick = {
-                saveCard(call, business, companyId, forNumber, category, billable, note)
-                if (business) Store.update { x ->
-                    var y = Ops.merge(x, call.id, if (merge) mergeWith?.id else null)
-                    y = Ops.edit(y, call.id) { it.copy(onsite = onsite) }
-                    if (todo && (todoText.isNotBlank() || remindAt != null)) y = Ops.addFollowUp(y, gr.wsol.billablecalls.core.FollowUp(
-                        Ops.newId(), companyId, call.id, call.number.takeIf { call.sim !in gr.wsol.billablecalls.core.Voip.APPS.values }, call.label,
-                        todoText.trim().ifBlank { note.trim() }, remindAt, created = System.currentTimeMillis()))
-                    y
-                }
-                gr.wsol.billablecalls.sys.Alarms.schedule(ctx)
-                gr.wsol.billablecalls.sys.Webhook.flushLater(ctx); onDone()
-            }, enabled = !business || companyId != null) { Text(t("Αποθήκευση", "Save")) }
+            Button(onClick = { save(); onDone() }, enabled = canSave) { Text(t("Αποθήκευση", "Save")) }
+        }
+        if (dialable) Button(onClick = { asking = true }, Modifier.fillMaxWidth(),
+            colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error, contentColor = MaterialTheme.colorScheme.onError)) {
+            Text("📞 " + t("Κλήση", "Call"))
         }
     }
+    if (asking) androidx.compose.material3.AlertDialog(
+        onDismissRequest = { asking = false },
+        title = { Text(t("Κλήση στο ${call.number};", "Call ${call.number}?")) },
+        text = { Text(if (canSave) t("Η κάρτα αποθηκεύεται και ανοίγει η κλήση.", "The card is saved and the dialer opens.")
+            else t("Δεν έχεις διαλέξει εταιρεία, οπότε η κάρτα δεν αποθηκεύεται. Ανοίγει μόνο η κλήση.", "No company is chosen, so the card isn't saved. Only the dialer opens.")) },
+        confirmButton = { Button(onClick = {
+            asking = false
+            if (canSave) { save(); onDone() }
+            gr.wsol.billablecalls.sys.Alarms.dial(ctx, call.number)
+        }, colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error, contentColor = MaterialTheme.colorScheme.onError)) { Text(t("Κλήση", "Call")) } },
+        dismissButton = { TextButton(onClick = { asking = false }) { Text(t("Άκυρο", "Cancel")) } })
 }
 
 /** The same card, inside the app (from the lists). */

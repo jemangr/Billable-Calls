@@ -23,17 +23,61 @@ import java.util.Date
 import java.util.Locale
 
 object Notify {
-    const val REMINDERS = "reminders"
+    /** The reminders' channel: «reminders_v<n>», a new one each time the sound settings change. */
+    const val REMINDERS_PREFIX = "reminders"
     const val CARD = "card"
     const val SERVICE = "service"
     const val INFO = "info"
 
     fun channels(context: Context) {
         val nm = context.getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(NotificationChannel(REMINDERS, t("Υπενθυμίσεις αναπάντητων", "Missed-call reminders"), NotificationManager.IMPORTANCE_HIGH))
+        reminders(context)
         nm.createNotificationChannel(NotificationChannel(CARD, t("Κάρτα μετά την κλήση", "After-call card"), NotificationManager.IMPORTANCE_HIGH))
         nm.createNotificationChannel(NotificationChannel(SERVICE, t("Άμεση κάρτα (μόνιμη)", "Instant card (ongoing)"), NotificationManager.IMPORTANCE_MIN))
         nm.createNotificationChannel(NotificationChannel(INFO, t("Backup και ενημερώσεις", "Backup and updates"), NotificationManager.IMPORTANCE_DEFAULT))
+    }
+
+    fun reminderId(r: gr.wsol.billablecalls.core.ReminderSettings) = REMINDERS_PREFIX + "_v" + r.channelVer
+
+    /** The reminders' channel, made with the sound and vibration of the settings; the older ones are deleted. */
+    fun reminders(context: Context): String {
+        Store.init(context)
+        val r = Store.settings.reminders
+        val id = reminderId(r)
+        val nm = context.getSystemService(NotificationManager::class.java)
+        runCatching {
+            nm.notificationChannels.filter { it.id.startsWith(REMINDERS_PREFIX) && it.id != id }.forEach { nm.deleteNotificationChannel(it.id) }
+            if (nm.getNotificationChannel(id) == null) nm.createNotificationChannel(NotificationChannel(id, t("Υπενθυμίσεις", "Reminders"), NotificationManager.IMPORTANCE_HIGH).apply {
+                description = t("Αναπάντητες και ενέργειες με υπενθύμιση", "Missed calls and actions with a reminder")
+                val attrs = android.media.AudioAttributes.Builder().setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION_EVENT)
+                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION).build()
+                if (r.sound) setSound(r.soundUri?.let { Uri.parse(it) } ?: android.provider.Settings.System.DEFAULT_NOTIFICATION_URI, attrs) else setSound(null, null)
+                enableVibration(r.vibrate)
+                if (r.vibrate) vibrationPattern = longArrayOf(0, 300, 200, 300)
+            })
+        }.onFailure { Report.note("channel", it.toString()) }
+        return id
+    }
+
+    /** What Android says about the channel now: off, or no sound (the user may have changed it there). */
+    fun reminderBlocked(context: Context): Boolean = runCatching {
+        val ch = context.getSystemService(NotificationManager::class.java).getNotificationChannel(reminders(context))
+        ch == null || ch.importance == NotificationManager.IMPORTANCE_NONE
+    }.getOrDefault(false)
+
+    fun reminderSilent(context: Context): Boolean = runCatching {
+        val ch = context.getSystemService(NotificationManager::class.java).getNotificationChannel(reminders(context))
+        ch != null && ch.sound == null && Store.settings.reminders.sound
+    }.getOrDefault(false)
+
+    /** Android's settings for the reminders' channel (sound, vibration, pop-up, «do not disturb»). */
+    fun openReminderSettings(context: Context) {
+        val i = Intent(android.provider.Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+            .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)
+            .putExtra(android.provider.Settings.EXTRA_CHANNEL_ID, reminders(context)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        runCatching { context.startActivity(i) }.onFailure {
+            runCatching { context.startActivity(Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+        }
     }
 
     fun allowed(context: Context) = Perms.has(context, Manifest.permission.POST_NOTIFICATIONS) || android.os.Build.VERSION.SDK_INT < 33
@@ -102,7 +146,7 @@ object Alarms {
         val who = d.company(f.companyId)?.name ?: f.label
         fun act(action: String, code: Int) = PendingIntent.getBroadcast(context, fid(f.id) + code, Intent(context, AlarmReceiver::class.java).setAction(action).putExtra("f", f.id), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val open = PendingIntent.getActivity(context, fid(f.id), Intent(context, MainActivity::class.java).putExtra("tab", "todo"), PendingIntent.FLAG_IMMUTABLE)
-        val b = NotificationCompat.Builder(context, Notify.REMINDERS).setSmallIcon(R.drawable.ic_stat)
+        val b = NotificationCompat.Builder(context, Notify.reminders(context)).setSmallIcon(R.drawable.ic_stat)
             .setContentTitle("⏰ $who").setContentText(f.text.ifBlank { t("Υπενθύμιση", "Reminder") }).setStyle(NotificationCompat.BigTextStyle().bigText(f.text.ifBlank { t("Υπενθύμιση", "Reminder") }))
             .setContentIntent(open).setAutoCancel(true).setCategory(NotificationCompat.CATEGORY_REMINDER)
         f.number?.let { n -> b.addAction(0, t("Κάλεσε", "Call"), PendingIntent.getActivity(context, fid(f.id) + 1, Intent(context, DialActivity::class.java).putExtra("number", n), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)) }
@@ -130,13 +174,22 @@ object Alarms {
         else t("Αναπάντητη στις $time. Πάρε πίσω.", "Missed at $time. Call back.")
         fun act(action: String, code: Int) = PendingIntent.getBroadcast(context, nid(r.key) + code, Intent(context, AlarmReceiver::class.java).setAction(action).putExtra("key", r.key), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val open = PendingIntent.getActivity(context, nid(r.key), Intent(context, MainActivity::class.java).putExtra("tab", "missed"), PendingIntent.FLAG_IMMUTABLE)
-        Notify.post(context, nid(r.key), NotificationCompat.Builder(context, Notify.REMINDERS)
+        Notify.post(context, nid(r.key), NotificationCompat.Builder(context, Notify.reminders(context))
             .setSmallIcon(R.drawable.ic_stat).setContentTitle(who).setContentText(text).setContentIntent(open).setAutoCancel(true)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .addAction(0, t("Κάλεσε", "Call"), PendingIntent.getActivity(context, nid(r.key) + 1, Intent(context, DialActivity::class.java).putExtra("key", r.key), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))
             .addAction(0, t("Αργότερα", "Later"), act(ACTION_LATER, 2))
             .addAction(0, t("Αγνόησε", "Ignore"), act(ACTION_IGNORE, 3))
             .build())
+    }
+
+    /** «Test»: a reminder now, with the sound and vibration of the settings. */
+    fun test(context: Context) {
+        val n = NotificationCompat.Builder(context, Notify.reminders(context)).setSmallIcon(R.drawable.ic_stat)
+            .setContentTitle(t("Δοκιμή υπενθύμισης", "Test reminder")).setContentText(t("Έτσι θα ακούγεται και θα δονείται.", "This is how it will sound and vibrate."))
+            .setCategory(NotificationCompat.CATEGORY_REMINDER).setAutoCancel(true)
+            .setContentIntent(PendingIntent.getActivity(context, 9_999, Intent(context, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)).build()
+        Notify.post(context, 9_999, n)
     }
 
     fun dial(context: Context, number: String) {

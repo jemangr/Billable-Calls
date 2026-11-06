@@ -1,3 +1,19 @@
+## Billable Calls 1.3.3
+
+- **Fix:** the «before you answer» card sometimes stayed on the screen and wouldn't close. Now only one card shows per call. It closes with a tap or the «✕», when the call ends, or after 60″ at most.
+- **Fix:** the screen no longer jumps up and down when you write the note on the after-call card. The card now stays at the bottom, right above the keyboard.
+- **The notes on that card:** it shows the company's 2 latest notes (from any of its numbers), with the date and topic, e.g. «03/11 · Υποστήριξη · «…»». If there are none, it shows «Last call: 03/11 · no note».
+- **Reminder sound:** Settings → Reminders → «Sound and vibration»:
+  - sound on/off and a choice of sound,
+  - vibration on/off,
+  - «Test», to hear it now,
+  - «Android settings», for the channel itself.
+  - It warns you if Android has the reminders muted.
+- **Call from the call card:** a red «📞 Call» button under Skip/Save, and the number is now tappable. Both ask «Call 69…?».
+  - On «Call» the card is saved and the dialer opens.
+  - If it's a business call with no company chosen, it only opens the dialer.
+  - Not for Viber/WhatsApp calls, which have no number.
+
 ## Billable Calls 1.3.2
 
 - **Bug report sent directly:** «Send» delivers it without opening your email app, so your address isn't shown. You can add your email if you want a reply. «From my email» is still there.

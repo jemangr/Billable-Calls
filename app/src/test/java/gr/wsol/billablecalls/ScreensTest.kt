@@ -26,6 +26,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
+import org.junit.Assert.assertFalse
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -122,4 +123,59 @@ class ScreensTest {
         assertTrue(Store.settings.onboarded)
         Lang.english = false
     }
+
+    @Test fun cardCallAsksSavesAndDials() {
+        shot("10-card-call") { androidx.compose.material3.Surface { CallCardContent(1) {} } }
+        tap("📞")
+        compose.onAllNodesWithText("Κλήση στο 6971111111;", substring = true)[0].assertExists()
+        compose.onAllNodesWithText("Κλήση", substring = false).fetchSemanticsNodes().let { assertTrue(it.isNotEmpty()) }
+        // the dialog's «Κλήση» is the last node with that text
+        compose.onAllNodesWithText("Κλήση").let { it[it.fetchSemanticsNodes().size - 1].performSemanticsAction(SemanticsActions.OnClick) }
+        compose.waitForIdle()
+        val started = org.robolectric.Shadows.shadowOf(androidx.test.core.app.ApplicationProvider.getApplicationContext<android.app.Application>()).nextStartedActivity
+        assertEquals(android.content.Intent.ACTION_DIAL, started.action)
+        assertEquals("tel:6971111111", started.dataString)
+        assertTrue(Store.data.calls.first { it.id == 1L }.reviewed)
+    }
+
+    @Test fun cardNumberIsTappable() {
+        shot("11-card-number") { androidx.compose.material3.Surface { CallCardContent(1) {} } }
+        tap("6971111111")
+        compose.onAllNodesWithText("Κλήση στο 6971111111;", substring = true)[0].assertExists()
+    }
+
+    @Test fun cardWithoutCompanyOnlyDials() {
+        Store.inMemory(sample().let { d -> d.copy(calls = d.calls.map { if (it.id == 6L) it.copy(companyId = null, personal = false) else it }) })
+        shot("12-card-nocompany") { androidx.compose.material3.Surface { CallCardContent(6) {} } }
+        tap("📞")
+        compose.onAllNodesWithText("δεν αποθηκεύεται", substring = true)[0].assertExists()
+    }
+
+    @Test fun reminderSound() {
+        shot("13-settings-sound") { App(Tab.SETTINGS) }
+        compose.onAllNodesWithText("Ήχος και δόνηση", substring = true)[0].assertExists()
+        val before = Store.settings.reminders.channelVer
+        Store.settings { it.copy(reminders = it.reminders.copy(vibrate = false, channelVer = it.reminders.channelVer + 1)) }
+        val ctx = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.app.Application>()
+        val id = gr.wsol.billablecalls.sys.Notify.reminders(ctx)
+        assertEquals("reminders_v${before + 1}", id)
+        val nm = ctx.getSystemService(android.app.NotificationManager::class.java)
+        assertTrue(nm.notificationChannels.filter { it.id.startsWith("reminders") }.map { it.id } == listOf(id))
+        assertFalse(nm.getNotificationChannel(id).shouldVibrate())
+    }
+
+    @Test fun hudOnlyOneCard() {
+        val ctx = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.app.Application>()
+        org.robolectric.shadows.ShadowSettings.setCanDrawOverlays(true)
+        Store.settings { it.copy(hudOn = true) }
+        // the two listeners both get «ringing»
+        gr.wsol.billablecalls.sys.Hud.show(ctx, "6971111111")
+        gr.wsol.billablecalls.sys.Hud.show(ctx, "6971111111")
+        org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+        assertEquals(1, gr.wsol.billablecalls.sys.Hud.count())
+        gr.wsol.billablecalls.sys.Hud.hide()
+        org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+        assertEquals(0, gr.wsol.billablecalls.sys.Hud.count())
+    }
 }
+

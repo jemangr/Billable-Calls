@@ -62,6 +62,8 @@ import gr.wsol.billablecalls.sys.Drive
 import gr.wsol.billablecalls.sys.Files
 import gr.wsol.billablecalls.sys.InstantService
 import gr.wsol.billablecalls.sys.Jobs
+import gr.wsol.billablecalls.sys.Alarms
+import gr.wsol.billablecalls.sys.Notify
 import gr.wsol.billablecalls.sys.Sims
 import gr.wsol.billablecalls.update.Installer
 import gr.wsol.billablecalls.update.Updates
@@ -247,7 +249,48 @@ fun ReminderSection(d: Data) {
         if (!r.stopTalked && !r.stopCount && !r.stopTime) Text(t("Προσοχή: χωρίς καμία συνθήκη οι υπενθυμίσεις σταματούν μόνο με το «Αγνόησε».", "Careful: with no condition, reminders stop only with «Ignore»."), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
         Text(t("«Αργότερα» σημαίνει", "«Later» means"), style = MaterialTheme.typography.titleSmall)
         Presets(listOf(15, 30, 60, 120), r.snoozeMin, { if (it >= 60 && it % 60 == 0) t("${it / 60} ώρ.", "${it / 60}h") else "$it′" }, t("Λεπτά", "Minutes")) { v -> set { it.copy(snoozeMin = v.coerceAtLeast(5)) } }
+        ReminderSound(r) { change -> set { change(it).copy(channelVer = it.channelVer + 1) } }
     }
+}
+
+/** Sound and vibration of the reminders. Each change makes a new Android channel (its sound can't be changed). */
+@Composable
+fun ReminderSound(r: ReminderSettings, set: ((ReminderSettings) -> ReminderSettings) -> Unit) {
+    val ctx = LocalContext.current
+    val pick = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
+        @Suppress("DEPRECATION")
+        val uri = res.data?.getParcelableExtra<Uri>(android.media.RingtoneManager.EXTRA_RINGTONE_PICKED_URI) ?: return@rememberLauncherForActivityResult
+        set { it.copy(sound = true, soundUri = uri.toString().takeIf { u -> u != android.provider.Settings.System.DEFAULT_NOTIFICATION_URI.toString() }) }
+    }
+    val name = remember(r.soundUri) {
+        runCatching { android.media.RingtoneManager.getRingtone(ctx, r.soundUri?.let { Uri.parse(it) } ?: android.provider.Settings.System.DEFAULT_NOTIFICATION_URI)?.getTitle(ctx) }.getOrNull()
+    }
+    // after a change the channel is made again, so the test and the Android settings use the new one
+    LaunchedEffect(r.channelVer) { Notify.reminders(ctx) }
+    Text(t("Ήχος και δόνηση", "Sound and vibration"), style = MaterialTheme.typography.titleSmall)
+    SwitchRow(t("Ήχος", "Sound"), r.sound) { v -> set { it.copy(sound = v) } }
+    if (r.sound) Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(t("Ήχος ειδοποίησης", "Notification sound"))
+            Muted(if (r.soundUri == null) t("Προεπιλογή του κινητού", "The phone's default") + (name?.let { " ($it)" } ?: "") else name ?: t("Επιλεγμένος ήχος", "Chosen sound"))
+        }
+        TextButton(onClick = {
+            pick.launch(Intent(android.media.RingtoneManager.ACTION_RINGTONE_PICKER)
+                .putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_TYPE, android.media.RingtoneManager.TYPE_NOTIFICATION)
+                .putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
+                .putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false)
+                .putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_DEFAULT_URI, android.provider.Settings.System.DEFAULT_NOTIFICATION_URI)
+                .putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, r.soundUri?.let { Uri.parse(it) } ?: android.provider.Settings.System.DEFAULT_NOTIFICATION_URI))
+        }) { Text(t("Επιλογή", "Choose")) }
+    }
+    SwitchRow(t("Δόνηση", "Vibration"), r.vibrate) { v -> set { it.copy(vibrate = v) } }
+    if (Notify.reminderBlocked(ctx)) Text(t("Οι υπενθυμίσεις είναι κλειστές στις ρυθμίσεις του Android.", "Reminders are turned off in Android's settings."), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+    else if (Notify.reminderSilent(ctx)) Text(t("Το Android έχει τις υπενθυμίσεις χωρίς ήχο. Άνοιξε τις ρυθμίσεις του Android για να τον βάλεις.", "Android has the reminders without sound. Open Android's settings to turn it on."), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedButton(onClick = { Alarms.test(ctx) }) { Text(t("Δοκιμή", "Test")) }
+        OutlinedButton(onClick = { Notify.openReminderSettings(ctx) }) { Text(t("Ρυθμίσεις Android", "Android settings")) }
+    }
+    Muted(t("Αν δεν ακούγεται: έλεγξε το «Μην ενοχλείτε» και την ένταση ειδοποιήσεων του κινητού.", "If you hear nothing: check «Do not disturb» and the phone's notification volume."))
 }
 
 @Composable

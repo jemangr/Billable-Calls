@@ -47,6 +47,19 @@ object Ops {
         return d.copy(calls = calls, rules = rules, reminders = reminders)
     }
 
+    /** The note written on the «before you answer» card for [key] (empty text removes it). */
+    fun setDraft(d: Data, key: String, text: String, shownAt: Long, now: Long): Data {
+        val rest = d.drafts.filter { !(it.key == key && it.shownAt == shownAt) && now - it.at < 24 * 3_600_000L }
+        return d.copy(drafts = if (text.isBlank()) rest else rest + Draft(key, text.trim(), shownAt, now))
+    }
+
+    /** The call [c] reached the log: a note written during it goes into its note (and the draft is used up). */
+    fun takeDraft(d: Data, c: Call): Pair<Call, Data> {
+        val dr = d.drafts.firstOrNull { it.key == c.key && it.shownAt >= c.start - 3 * 60_000L && it.shownAt <= c.end + 60_000L } ?: return c to d
+        val note = listOf(c.note.trim(), dr.text).filter { it.isNotBlank() }.joinToString("\n")
+        return c.copy(note = note) to d.copy(drafts = d.drafts - dr)
+    }
+
     fun edit(d: Data, id: Long, change: (Call) -> Call) = d.copy(calls = d.calls.map { if (it.id == id) change(it) else it })
 
     /**

@@ -253,6 +253,10 @@ data class Settings(
     }
 }
 
+/** A note written during the call, for the number [key]; [shownAt] = when the card opened (≈ the call's start). */
+@Serializable
+data class Draft(val key: String, val text: String, val shownAt: Long, val at: Long)
+
 @Serializable
 data class Data(
     val companies: List<Company> = emptyList(),
@@ -265,6 +269,8 @@ data class Data(
     val pendingHooks: List<Long> = emptyList(),
     /** company id → the month («2026-11») its package alert was shown. */
     val packageAlerted: Map<String, String> = emptyMap(),
+    /** Notes written on the «before you answer» card during a call, until the call reaches the call log (1.3.5). */
+    val drafts: List<Draft> = emptyList(),
 ) {
     fun company(id: String?) = id?.let { i -> companies.firstOrNull { it.id == i } }
     fun rule(key: String) = rules.firstOrNull { it.key == key }

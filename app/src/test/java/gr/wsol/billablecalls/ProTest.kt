@@ -131,4 +131,21 @@ class ProTest {
         assertEquals(listOf("Τελευταία κλήση: 04/11 · Υποστήριξη · χωρίς σημείωση"), gr.wsol.billablecalls.sys.Hud.notes(none, "a"))
         assertTrue(gr.wsol.billablecalls.sys.Hud.notes(Data(companies = listOf(a)), "a").isEmpty())
     }
+
+    @Test fun noteWrittenDuringTheCallGoesIntoTheCall() {
+        val start = ms(4, 10)
+        var d = Data(companies = listOf(a))
+        d = Ops.setDraft(d, "6971111111", "Θέλει προσφορά για 2 κλιματιστικά", start + 5_000, start + 60_000)
+        assertEquals(1, d.drafts.size)
+        val call = call(1, start, 300, key = "6971111111").copy(note = "")
+        val (c2, d2) = Ops.takeDraft(d, call)
+        assertEquals("Θέλει προσφορά για 2 κλιματιστικά", c2.note)
+        assertTrue(d2.drafts.isEmpty())
+        // another number or another time: not this call
+        assertEquals("", Ops.takeDraft(d, call.copy(key = "2100000000")).first.note)
+        assertEquals("", Ops.takeDraft(d, call.copy(start = start + 3_600_000)).first.note)
+        // emptying the field removes the draft
+        assertTrue(Ops.setDraft(d, "6971111111", " ", start + 5_000, start + 70_000).drafts.isEmpty())
+    }
 }
+

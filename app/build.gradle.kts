@@ -16,8 +16,8 @@ android {
         applicationId = "gr.wsol.billablecalls"
         minSdk = 29
         targetSdk = 36
-        versionCode = 8
-        versionName = "1.3.4"
+        versionCode = 9
+        versionName = "1.3.5"
         buildConfigField("boolean", "UPDATE_CHECK", (!project.hasProperty("noUpdateCheck")).toString())
     }
 

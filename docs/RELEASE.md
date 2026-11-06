@@ -1,3 +1,10 @@
+## Billable Calls 1.3.5
+
+- **A note while you talk:** the «before you answer» card has a «Note» field.
+  - Tap it and the keyboard opens, even over the call screen. «✓» closes the keyboard.
+  - What you write is kept at once. When the call ends, it goes into the call's note, so the after-call card opens already filled in.
+  - The card is only for incoming calls from customers, so the note field is too.
+
 ## Billable Calls 1.3.4
 
 - **The «before you answer» card** now opens in the middle of the screen.

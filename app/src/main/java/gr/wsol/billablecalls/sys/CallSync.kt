@@ -97,7 +97,9 @@ object CallSync {
             val dir = direction(r.type, r.duration) ?: continue
             val contact = source.contact(r.number)
             val cid = if (r.id in known) (d.calls.maxOfOrNull { it.id } ?: 0L) + 1_000_000_000L + added.size else r.id
-            val call = Ops.withDefaultTopic(Ops.classify(Call(cid, Phone.key(r.number), r.number, contact?.name, contact?.org, r.account, dir, r.date, r.duration, reviewed = r.date < s.since), d, idx), s)
+            var call = Ops.withDefaultTopic(Ops.classify(Call(cid, Phone.key(r.number), r.number, contact?.name, contact?.org, r.account, dir, r.date, r.duration, reviewed = r.date < s.since), d, idx), s)
+            // a note written on the «before you answer» card during this call
+            Ops.takeDraft(d, call).let { (c2, d2) -> call = c2; d = d2 }
             added += call
         }
         d = d.copy(calls = d.calls + added, settings = d.settings.copy(lastCallId = lastId))

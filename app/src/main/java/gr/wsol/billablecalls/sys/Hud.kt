@@ -19,6 +19,7 @@ import android.widget.TextView
 import gr.wsol.billablecalls.core.Billing
 import gr.wsol.billablecalls.core.Data
 import gr.wsol.billablecalls.core.Matcher
+import gr.wsol.billablecalls.core.Ops
 import gr.wsol.billablecalls.core.Packages
 import gr.wsol.billablecalls.core.Phone
 import gr.wsol.billablecalls.core.Report
@@ -82,8 +83,63 @@ object Hud {
         return true
     }
 
+    /** The card on the screen now (for the keyboard). */
+    private var current: View? = null
+    private fun box(): View? = current
+
+    /** The card takes the keyboard only while you write in the note (otherwise touches go to the phone app). */
+    private fun takeKeyboard(v: View?, lp: WindowManager.LayoutParams, wm: WindowManager, focusable: Boolean) {
+        v ?: return
+        lp.flags = if (focusable) lp.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
+        else lp.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+        runCatching { wm.updateViewLayout(v, lp) }
+    }
+
+    /** Keeps what is written on the card for [number] (empty = nothing). */
+    fun saveDraft(number: String, shownAt: Long, text: String) {
+        Store.update { Ops.setDraft(it, Phone.key(number), text, shownAt, System.currentTimeMillis()) }
+    }
+
+    private fun noteField(context: Context, number: String, shownAt: Long, dp: (Float) -> Int, focus: (Boolean) -> Unit): View {
+        val imm = context.getSystemService(android.view.inputmethod.InputMethodManager::class.java)
+        val row = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        val edit = android.widget.EditText(context).apply {
+            hint = t("Σημείωση όσο μιλάτε…", "Note while you talk…")
+            setHintTextColor(0xFF8F95A3.toInt()); setTextColor(0xFFFFFFFF.toInt()); setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
+            minLines = 1; maxLines = 4
+            background = GradientDrawable().apply { cornerRadius = dp(12f).toFloat(); setColor(0xFF23252B.toInt()); setStroke(dp(1f), 0xFF3A3F4A.toInt()) }
+            setPadding(dp(12f), dp(10f), dp(12f), dp(10f))
+            // tapping the field: the card takes the keyboard
+            setOnTouchListener { v, e ->
+                if (e.actionMasked == android.view.MotionEvent.ACTION_UP && !v.hasFocus()) {
+                    focus(true); v.requestFocus(); main.postDelayed({ imm?.showSoftInput(v, 0) }, 120)
+                }
+                false
+            }
+            val save = Runnable { saveDraft(number, shownAt, text.toString()) }
+            addTextChangedListener(object : android.text.TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+                override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+                override fun afterTextChanged(s: android.text.Editable?) { main.removeCallbacks(save); main.postDelayed(save, 600) }
+            })
+        }
+        val done = TextView(context).apply {
+            text = "✓"; setTextColor(0xFF8FB0FF.toInt()); setTextSize(TypedValue.COMPLEX_UNIT_SP, 20f); gravity = Gravity.CENTER
+            contentDescription = t("Τέλος σημείωσης", "Done with the note")
+            setOnClickListener {
+                saveDraft(number, shownAt, edit.text.toString())
+                imm?.hideSoftInputFromWindow(edit.windowToken, 0); edit.clearFocus(); focus(false)
+            }
+        }
+        row.addView(edit, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        row.addView(done, LinearLayout.LayoutParams(dp(44f), dp(44f)))
+        return row
+    }
+
     fun show(context: Context, number: String) {
-        if (number.isBlank() || !claim(number, System.currentTimeMillis())) return
+        val shownAt = System.currentTimeMillis()
+        if (number.isBlank() || !claim(number, shownAt)) return
         Store.init(context)
         if (!Store.settings.hudOn || !Card.canOverlay(context)) return
         val contact = runCatching { AndroidCallSource(context).contact(number) }.getOrNull()
@@ -117,6 +173,9 @@ object Hud {
                                 maxLines = 2
                             })
                         }
+                        // 1.3.5: a note while you talk; it is kept at once and goes into the call when it reaches the log
+                        addView(noteField(context, number, shownAt, dp, { focusable -> takeKeyboard(box(), lp, wm, focusable) }),
+                            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(10f) })
                     })
                     // the ✕ in the corner: the only way to close it by hand
                     addView(TextView(context).apply {
@@ -144,6 +203,7 @@ object Hud {
                 }
                 wm.addView(box, lp)
                 views += box
+                current = box
                 main.removeCallbacks(timeout)
                 main.postDelayed(timeout, SAFETY_MS)
             }.onFailure { Report.note("hud", it.toString()) }
@@ -153,6 +213,7 @@ object Hud {
     /** Removes every card now (on the main thread). The call stays «seen», so it doesn't come back while it rings. */
     private fun removeAll() {
         main.removeCallbacks(timeout)
+        current = null
         views.toList().forEach { v -> runCatching { v.context.getSystemService(WindowManager::class.java).removeView(v) } }
         views.clear()
     }

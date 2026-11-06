@@ -148,16 +148,24 @@ fun CallCardContent(callId: Long, counter: String? = null, onDone: () -> Unit) {
         val speak = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()) { r ->
             r.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.let { said -> note = listOf(note.trim(), said).filter { it.isNotBlank() }.joinToString(" ") }
         }
+        val dictate = {
+            val i = android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+                .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, if (gr.wsol.billablecalls.core.Lang.english) "en-US" else "el-GR")
+                .putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, t("Πες τη σημείωση", "Say the note"))
+            runCatching { speak.launch(i) }.onFailure { toast(ctx, t("Δεν υπάρχει αναγνώριση φωνής σε αυτό το κινητό.", "No speech recognition on this phone.")) }
+            Unit
+        }
         OutlinedTextField(note, { note = it }, label = { Text(t("Σημείωση: τι συζητήθηκε", "Note: what was discussed")) }, modifier = Modifier.fillMaxWidth(), minLines = 2,
             trailingIcon = {
-                androidx.compose.material3.IconButton(onClick = {
-                    val i = android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
-                        .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                        .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, if (gr.wsol.billablecalls.core.Lang.english) "en-US" else "el-GR")
-                        .putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, t("Πες τη σημείωση", "Say the note"))
-                    runCatching { speak.launch(i) }.onFailure { toast(ctx, t("Δεν υπάρχει αναγνώριση φωνής σε αυτό το κινητό.", "No speech recognition on this phone.")) }
-                }) { androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Mic, t("Υπαγόρευση", "Dictate")) }
+                androidx.compose.material3.IconButton(onClick = dictate) { androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Mic, t("Υπαγόρευση", "Dictate")) }
             })
+        // 1.3.6 (Giannis 6/11): a real button to speak the note, not only the small icon in the field
+        OutlinedButton(onClick = dictate, modifier = Modifier.fillMaxWidth()) {
+            androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Mic, null)
+            Spacer(Modifier.width(8.dp))
+            Text(t("Πες τη σημείωση", "Say the note"))
+        }
         if (business) {
             // the same support in 2–3 calls: billed as one, rounded once
             mergeWith?.let { prev ->

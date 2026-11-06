@@ -107,11 +107,15 @@ object Hud {
             hint = t("Σημείωση όσο μιλάτε…", "Note while you talk…")
             setHintTextColor(0xFF8F95A3.toInt()); setTextColor(0xFFFFFFFF.toInt()); setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
             inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
-            minLines = 1; maxLines = 4
+            // 1.3.6: always 4 lines; more text scrolls up and down inside the field
+            minLines = 4; maxLines = 4; gravity = Gravity.TOP or Gravity.START
+            isVerticalScrollBarEnabled = true; isScrollbarFadingEnabled = false; scrollBarStyle = View.SCROLLBARS_INSIDE_INSET
             background = GradientDrawable().apply { cornerRadius = dp(12f).toFloat(); setColor(0xFF23252B.toInt()); setStroke(dp(1f), 0xFF3A3F4A.toInt()) }
             setPadding(dp(12f), dp(10f), dp(12f), dp(10f))
             // tapping the field: the card takes the keyboard
             setOnTouchListener { v, e ->
+                // scrolling the note must not drag the card
+                if (e.actionMasked == android.view.MotionEvent.ACTION_DOWN || e.actionMasked == android.view.MotionEvent.ACTION_MOVE) v.parent?.requestDisallowInterceptTouchEvent(true)
                 if (e.actionMasked == android.view.MotionEvent.ACTION_UP && !v.hasFocus()) {
                     focus(true); v.requestFocus(); main.postDelayed({ imm?.showSoftInput(v, 0) }, 120)
                 }

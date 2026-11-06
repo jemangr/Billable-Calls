@@ -1,3 +1,8 @@
+## Billable Calls 1.3.6
+
+- **The note on the «before you answer» card** always shows 4 lines. Longer text scrolls up and down inside the field.
+- **The after-call card** has a «🎤 Say the note» button under the note, as well as the small microphone inside the field.
+
 ## Billable Calls 1.3.5
 
 - **A note while you talk:** the «before you answer» card has a «Note» field.

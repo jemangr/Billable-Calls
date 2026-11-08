@@ -24,6 +24,9 @@
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <queries>
+        <!-- «Οι άλλες εφαρμογές μας» in the settings: open them if they are installed -->
+        <package android:name="gr.wsol.gamenight" />
+        <package android:name="app.binelik" />
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="https" />

@@ -485,6 +485,7 @@ fun SettingsScreen() {
             HistorySection()
             BackupSection(d)
             UpdateSection(d)
+            MoreAppsSection()
             SectionCard(t("Απόρρητο", "Privacy")) {
                 Muted(t("Οι κλήσεις, οι εταιρείες και οι σημειώσεις μένουν μόνο στο κινητό σου (και στο Drive σου, αν το συνδέσεις). Χωρίς διαφημίσεις ή tracking. Μόνο η αναφορά σφάλματος, όταν τη στείλεις, περνά από το platebit.app για να έρθει σε εμάς, και δεν κρατιέται εκεί.", "Calls, companies and notes stay only on your phone (and on your Drive, if you connect it). No ads, no tracking. Only a bug report, when you send it, goes through platebit.app to reach us, and is not kept there."))
             }
@@ -492,4 +493,26 @@ fun SettingsScreen() {
         }
     }
     if (export) ExportDialog(null) { export = false }
+}
+
+/** «Κοινοποίηση» and «Οι άλλες εφαρμογές μας» (8/11/2026). */
+@Composable
+fun MoreAppsSection() {
+    val ctx = LocalContext.current
+    SectionCard(t("Κοινοποίηση", "Share"), t("Στείλε το Billable Calls σε συνάδελφο.", "Send Billable Calls to a colleague.")) {
+        OutlinedButton(onClick = { gr.wsol.billablecalls.sys.MoreApps.share(ctx) }) { Text(t("📤 Κοινοποίηση", "📤 Share")) }
+    }
+    SectionCard(t("Οι άλλες εφαρμογές μας", "Our other apps")) {
+        gr.wsol.billablecalls.sys.MoreApps.others.forEach { a ->
+            val has = remember(a.pkg) { gr.wsol.billablecalls.sys.MoreApps.installed(ctx, a.pkg) }
+            Row(verticalAlignment = Alignment.Top) {
+                Text(a.emoji, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(end = 12.dp, top = 2.dp))
+                androidx.compose.foundation.layout.Column(Modifier.weight(1f)) {
+                    Text(a.name, style = MaterialTheme.typography.titleSmall)
+                    Muted(a.desc)
+                    OutlinedButton(onClick = { gr.wsol.billablecalls.sys.MoreApps.openOrInstall(ctx, a) }) { Text(if (has) t("Άνοιγμα", "Open") else t("Εγκατάσταση", "Install")) }
+                }
+            }
+        }
+    }
 }

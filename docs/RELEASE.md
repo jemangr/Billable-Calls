@@ -1,3 +1,7 @@
+## Billable Calls 1.3.8
+
+- **Settings → Share** (send the app to a colleague) and **Our other apps** (Gamenight GR, Binelik AI), installed or opened with one tap.
+
 ## Billable Calls 1.3.7
 
 - **Fix:** in 1.3.6 the app closed («keeps stopping») when the «before you answer» card opened. The note field still scrolls, but without a visible scrollbar.

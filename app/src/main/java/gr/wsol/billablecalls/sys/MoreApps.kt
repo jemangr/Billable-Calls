@@ -18,7 +18,7 @@ object MoreApps {
     }
 
     val all = listOf(
-        App("gr.wsol.gamenight", "🎲", "Gamenight GR",
+        App("gr.wsol.gamenight", "🎲", "GameNight",
             "54 παιχνίδια παρέας σε ένα κινητό. Χωρίς internet και διαφημίσεις.",
             "54 party games on one phone. No internet, no ads.",
             "https://github.com/jemangr/Gamenight-GR", "https://github.com/jemangr/Gamenight-GR/releases/latest/download/GamenightGR.apk"),

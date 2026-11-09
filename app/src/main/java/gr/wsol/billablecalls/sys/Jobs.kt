@@ -122,7 +122,7 @@ class InstantService : Service() {
 
     override fun onDestroy() {
         runCatching { unregisterReceiver(ring) }
-        callback?.let { runCatching { getSystemService(TelephonyManager::class.java).unregisterTelephonyCallback(it) } }
+        if (Build.VERSION.SDK_INT >= 31) callback?.let { runCatching { getSystemService(TelephonyManager::class.java).unregisterTelephonyCallback(it) } }
         super.onDestroy()
     }
 

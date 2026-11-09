@@ -12,7 +12,7 @@ object Sheets {
 
     /** Rows of a CSV: the delimiter (; , or tab) is found from the first line; quotes are handled. */
     fun readCsv(text: String): List<List<String>> {
-        val t = text.removePrefix("﻿")
+        val t = text.removePrefix("\uFEFF")
         val first = t.lineSequence().firstOrNull().orEmpty()
         val delim = listOf(';', '\t', ',').maxBy { c -> first.count { it == c } }.takeIf { c -> first.count { it == c } > 0 } ?: ';'
         val rows = mutableListOf<List<String>>()
@@ -104,7 +104,7 @@ object Sheets {
     // ---------- writing ----------
 
     fun csv(rows: List<List<Any?>>): ByteArray {
-        val sb = StringBuilder("﻿")
+        val sb = StringBuilder("\uFEFF")
         for (r in rows) {
             sb.append(r.joinToString(";") { v ->
                 val s = when (v) { null -> ""; is Double -> "%.2f".format(java.util.Locale.ROOT, v).replace('.', ','); else -> v.toString() }

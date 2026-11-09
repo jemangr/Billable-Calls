@@ -245,6 +245,8 @@ class DialActivity : android.app.Activity() {
 
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        // only the two system broadcasts of the manifest (Lint: UnsafeProtectedBroadcastReceiver)
+        if (intent.action != Intent.ACTION_BOOT_COMPLETED && intent.action != Intent.ACTION_MY_PACKAGE_REPLACED) return
         Store.init(context)
         Jobs.schedule(context)
         Alarms.schedule(context)

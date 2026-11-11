@@ -1,3 +1,8 @@
+## Billable Calls 1.3.9
+
+- **Our other apps:** Gamenight GR is now called GameNight.
+- **Small fixes:** reminders are set up again only after a restart or an app update, and nothing else; the instant card's call listener closes safely on older Android; CSV files keep the mark that lets Greek Excel open them correctly.
+
 ## Billable Calls 1.3.8
 
 - **Settings → Share** (send the app to a colleague) and **Our other apps** (Gamenight GR, Binelik AI), installed or opened with one tap.

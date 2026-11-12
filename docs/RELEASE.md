@@ -1,3 +1,7 @@
+## Billable Calls 1.4.1
+
+- **Problem reports** now go to support@jemangr.app (both «Send» and «From my email»). Privacy questions: privacy@jemangr.app.
+
 ## Billable Calls 1.4.0
 
 - **English:** the built-in call topics (Support, Quote, Billing, Appointment, Other) now show in English on the card, in the lists, in notifications and in exports. Topics you added yourself stay as you wrote them.

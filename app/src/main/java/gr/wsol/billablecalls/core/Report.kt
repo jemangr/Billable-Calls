@@ -15,7 +15,7 @@ import java.util.Locale
  * last errors. Never numbers, names, companies or notes. It stays on the phone until the user sends it.
  */
 object Report {
-    const val EMAIL = "info@3wsol.gr"
+    const val EMAIL = "support@jemangr.app"
     const val SUBJECT = "Bug report Billable Calls"
     /** The report goes straight to us through platebit.app (nothing kept there); the user's email only if they write it. */
     const val ENDPOINT = "https://platebit.app/report.php"

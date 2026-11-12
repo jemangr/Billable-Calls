@@ -56,6 +56,8 @@ import gr.wsol.billablecalls.core.Sheets
 import gr.wsol.billablecalls.core.Store
 import gr.wsol.billablecalls.core.Window
 import gr.wsol.billablecalls.core.t
+import gr.wsol.billablecalls.core.n
+import gr.wsol.billablecalls.core.topic
 import gr.wsol.billablecalls.sys.Backup
 import gr.wsol.billablecalls.sys.Card
 import gr.wsol.billablecalls.sys.Drive
@@ -127,7 +129,7 @@ fun ListSection(d: Data) {
     SectionCard(t("Λίστα πελατών", "Customer list"),
         t("Στήλη Α η επωνυμία, οι επόμενες στήλες συνώνυμα (ή στο ίδιο κελί χωρισμένα με «|»). CSV ή Excel.", "Column A the name, the next columns aliases (or in one cell split by «|»). CSV or Excel.")) {
         val src = when (s.listSource) { "file" -> t("αρχείο ", "file ") + s.listName; "url" -> "link"; "drive" -> "Google Drive"; else -> t("με το χέρι", "by hand") }
-        Muted(t("Τώρα: ", "Now: ") + src + " · " + t("${d.companies.size} εταιρείες", "${d.companies.size} companies") + (if (s.listSynced > 0) " · " + dayHm(s.listSynced) else ""))
+        Muted(t("Τώρα: ", "Now: ") + src + " · " + n(d.companies.size, "εταιρεία", "εταιρείες", "company", "companies") + (if (s.listSynced > 0) " · " + dayHm(s.listSynced) else ""))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = { pick.launch(arrayOf("text/*", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/vnd.ms-excel", "application/octet-stream")) }) { Text(t("Από αρχείο", "From a file")) }
             OutlinedButton(onClick = { url = true }) { Text(t("Από link", "From a link")) }
@@ -318,7 +320,7 @@ fun CategorySection(d: Data) {
         s.categories.forEach { c ->
             Row(verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = { Store.settings { it.copy(defaultCategory = if (it.defaultCategory == c) "" else c) } }) { Text(if (s.defaultCategory == c) "★" else "☆") }
-                Text(c, Modifier.weight(1f))
+                Text(topic(c), Modifier.weight(1f))
                 if (s.billByCategory) androidx.compose.material3.Switch(c in s.billableCategories, { on ->
                     Store.settings { it.copy(billableCategories = if (on) (it.billableCategories + c).distinct() else it.billableCategories - c) }
                 })

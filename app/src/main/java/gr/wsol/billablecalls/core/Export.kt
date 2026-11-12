@@ -55,7 +55,7 @@ object Export {
                 d.company(c.companyId)?.name ?: if (c.personal) t("Προσωπική", "Personal") else "",
                 c.contact.orEmpty(), c.number, direction(c.direction), c.sim?.let { sims[it] ?: it }.orEmpty(),
                 s.format(Period.DAY), s.format(TIME), e.format(TIME), round2(c.durationSec / 60.0), round2(Billing.seconds(c, d) / 60.0),
-                c.category.orEmpty(), c.note,
+                c.category?.let(::topic).orEmpty(), c.note,
             ) + (if (d.settings.overtimeOn) listOf(if (Overtime.isOut(c, d.settings, zone)) t("Ναι ×${d.settings.overtimeFactor}", "Yes ×${d.settings.overtimeFactor}") else "") else emptyList()) +
                 (if (d.settings.billedOn) listOf(c.billedAt?.let { java.time.Instant.ofEpochMilli(it).atZone(zone).format(Period.DAY) }.orEmpty()) else emptyList())
         }

@@ -51,6 +51,8 @@ import gr.wsol.billablecalls.core.Ops
 import gr.wsol.billablecalls.core.Period
 import gr.wsol.billablecalls.core.Store
 import gr.wsol.billablecalls.core.t
+import gr.wsol.billablecalls.core.n
+import gr.wsol.billablecalls.core.topic
 
 enum class Range { TODAY, WEEK, MONTH, LAST_MONTH, ALL }
 
@@ -76,7 +78,7 @@ fun CallRow(c: Call, d: Data, selected: Boolean, onClick: () -> Unit, onLong: ()
         Column(Modifier.weight(1f)) {
             Text(c.label, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             val company = d.company(c.companyId)?.name ?: if (c.personal) t("Προσωπική", "Personal") else t("Χωρίς εταιρεία", "No company")
-            Text("${arrow(c.direction)} $company${c.category?.let { " · $it" }.orEmpty()}", style = MaterialTheme.typography.bodySmall,
+            Text("${arrow(c.direction)} $company${c.category?.let { " · ${topic(it)}" }.orEmpty()}", style = MaterialTheme.typography.bodySmall,
                 color = if (c.business) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (c.note.isNotBlank()) Muted("✎ " + c.note.take(80))
         }
@@ -135,8 +137,8 @@ fun CallsScreen(onCall: (Long) -> Unit) {
             }
         } else {
             val bill = calls.sumOf { Billing.seconds(it, d) }
-            Muted(if (tab == 0) t("${calls.size} κλήσεις · χρεώσιμος χρόνος ${Billing.nice(bill)} · κράτα πατημένο για επιλογή", "${calls.size} calls · billable ${Billing.nice(bill)} · long-press to select")
-                else t("${calls.size} κλήσεις · κράτα πατημένο για επιλογή", "${calls.size} calls · long-press to select"), Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+            Muted(if (tab == 0) n(calls.size, "κλήση", "κλήσεις", "call", "calls") + t(" · χρεώσιμος χρόνος ${Billing.nice(bill)} · κράτα πατημένο για επιλογή", " · billable ${Billing.nice(bill)} · long-press to select")
+                else n(calls.size, "κλήση", "κλήσεις", "call", "calls") + t(" · κράτα πατημένο για επιλογή", " · long-press to select"), Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
         }
         if (picking) {
             Column(Modifier.padding(16.dp)) {

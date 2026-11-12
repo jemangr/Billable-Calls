@@ -18,6 +18,8 @@ import gr.wsol.billablecalls.core.Report
 import gr.wsol.billablecalls.core.Sheets
 import gr.wsol.billablecalls.core.Store
 import gr.wsol.billablecalls.core.t
+import gr.wsol.billablecalls.core.n
+import gr.wsol.billablecalls.core.topic
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.net.HttpURLConnection
@@ -154,7 +156,7 @@ object Pdf {
         for (tt in totals) {
             if (y > H - 80) newPage()
             page!!.canvas.drawText(fit(tt.company?.name.orEmpty(), text, 260f), M.toFloat(), y, text)
-            page!!.canvas.drawText(t("${tt.calls} κλήσεις", "${tt.calls} calls"), M + 270f, y, text)
+            page!!.canvas.drawText(n(tt.calls, "κλήση", "κλήσεις", "call", "calls"), M + 270f, y, text)
             page!!.canvas.drawText(t("ομιλία ", "talk ") + Billing.hms(tt.talkSec), M + 350f, y, text)
             page!!.canvas.drawText(t("χρέωση ", "billable ") + Billing.hms(tt.billableSec), M + 440f, y, bold)
             y += 14
@@ -181,7 +183,7 @@ object Pdf {
             if (y > H - 50) { newPage(); header() }
             val s = java.time.Instant.ofEpochMilli(call.start).atZone(zone); val e = java.time.Instant.ofEpochMilli(call.end).atZone(zone)
             val who = call.label + if (company == null) d.company(call.companyId)?.name?.let { " · $it" }.orEmpty() else ""
-            val topic = (if (gr.wsol.billablecalls.core.Overtime.isOut(call, d.settings, zone)) "⏰ " else "") + listOfNotNull(call.category, call.note.takeIf { it.isNotBlank() }).joinToString(" · ")
+            val topic = (if (gr.wsol.billablecalls.core.Overtime.isOut(call, d.settings, zone)) "⏰ " else "") + listOfNotNull(call.category?.let(::topic), call.note.takeIf { it.isNotBlank() }).joinToString(" · ")
             val cells = listOf(s.format(day), s.format(hm), e.format(hm), who, Billing.hms(call.durationSec), Billing.hms(Billing.seconds(call, d)), topic)
             val widths = floatArrayOf(60f, 32f, 32f, 148f, 48f, 43f, W - 2f * M - 375f)
             cells.forEachIndexed { i, v -> page!!.canvas.drawText(fit(v, text, widths[i]), M + cols[i], y, text) }

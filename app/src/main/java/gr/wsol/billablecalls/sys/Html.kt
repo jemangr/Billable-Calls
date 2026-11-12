@@ -8,6 +8,7 @@ import gr.wsol.billablecalls.core.Export
 import gr.wsol.billablecalls.core.Overtime
 import gr.wsol.billablecalls.core.Period
 import gr.wsol.billablecalls.core.t
+import gr.wsol.billablecalls.core.topic
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
@@ -32,7 +33,7 @@ object Html {
                     put("day", s.format(day)); put("sort", c.start); put("from", s.format(hm)); put("to", e.format(hm))
                     put("company", d.company(c.companyId)?.name.orEmpty()); put("who", c.contact ?: c.number)
                     put("dir", Export.direction(c.direction)); put("talk", c.durationSec); put("bill", Billing.seconds(c, d))
-                    put("topic", c.category.orEmpty()); put("note", c.note); put("ooh", Overtime.isOut(c, d.settings, zone)); put("onsite", d.settings.onsiteOn && c.onsite)
+                    put("topic", c.category?.let(::topic).orEmpty()); put("note", c.note); put("ooh", Overtime.isOut(c, d.settings, zone)); put("onsite", d.settings.onsiteOn && c.onsite)
                 })
             }
         }

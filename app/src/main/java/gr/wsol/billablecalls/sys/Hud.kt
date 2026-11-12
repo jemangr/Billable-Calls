@@ -25,6 +25,7 @@ import gr.wsol.billablecalls.core.Phone
 import gr.wsol.billablecalls.core.Report
 import gr.wsol.billablecalls.core.Store
 import gr.wsol.billablecalls.core.t
+import gr.wsol.billablecalls.core.topic
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -70,10 +71,10 @@ object Hud {
         val calls = d.calls.filter { it.companyId == companyId }.sortedByDescending { it.start }
         val noted = calls.filter { it.note.isNotBlank() }.take(2)
         if (noted.isNotEmpty()) return noted.map { c ->
-            "• " + listOfNotNull(fmt.format(Date(c.start)), c.category, "«" + c.note.trim().replace('\n', ' ').take(70) + "»").joinToString(" · ")
+            "• " + listOfNotNull(fmt.format(Date(c.start)), c.category?.let(::topic), "«" + c.note.trim().replace('\n', ' ').take(70) + "»").joinToString(" · ")
         }
         val last = calls.firstOrNull() ?: return emptyList()
-        return listOf(t("Τελευταία κλήση: ", "Last call: ") + listOfNotNull(fmt.format(Date(last.start)), last.category, t("χωρίς σημείωση", "no note")).joinToString(" · "))
+        return listOf(t("Τελευταία κλήση: ", "Last call: ") + listOfNotNull(fmt.format(Date(last.start)), last.category?.let(::topic), t("χωρίς σημείωση", "no note")).joinToString(" · "))
     }
 
     /** A second «ringing» for the same number (the phone sends it to more than one listener) is ignored. */

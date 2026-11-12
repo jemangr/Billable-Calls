@@ -1,3 +1,8 @@
+## Billable Calls 1.4.0
+
+- **English:** the built-in call topics (Support, Quote, Billing, Appointment, Other) now show in English on the card, in the lists, in notifications and in exports. Topics you added yourself stay as you wrote them.
+- **Counts in the right number,** in both languages: «1 missed call waiting», «1 call without a card», «1 κλήση», «1 εταιρεία» and so on.
+
 ## Billable Calls 1.3.9
 
 - **Our other apps:** Gamenight GR is now called GameNight.

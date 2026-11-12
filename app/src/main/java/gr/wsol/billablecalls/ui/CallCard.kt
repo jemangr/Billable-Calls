@@ -43,6 +43,7 @@ import gr.wsol.billablecalls.core.Matcher
 import gr.wsol.billablecalls.core.Ops
 import gr.wsol.billablecalls.core.Store
 import gr.wsol.billablecalls.core.t
+import gr.wsol.billablecalls.core.topic
 
 /** Saves what the card says about a call: business or not, which company, topic, billable, note. */
 fun saveCard(call: Call, business: Boolean, companyId: String?, forNumber: Boolean, category: String?, billable: Boolean?, note: String) {
@@ -129,7 +130,7 @@ fun CallCardContent(callId: Long, counter: String? = null, onDone: () -> Unit) {
             }
             Text(t("Θέμα", "Topic"), style = MaterialTheme.typography.titleSmall)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                d.settings.categories.forEach { cat -> FilterChip(category == cat, { category = if (category == cat) null else cat }, label = { Text(cat) }) }
+                d.settings.categories.forEach { cat -> FilterChip(category == cat, { category = if (category == cat) null else cat }, label = { Text(topic(cat)) }) }
             }
             val auto = call.copy(companyId = companyId, personal = false, billable = null, category = category).let { Billing.counts(it, d.company(companyId), d.settings) }
             if (d.settings.cardBillable) {

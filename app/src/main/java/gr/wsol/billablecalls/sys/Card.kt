@@ -16,6 +16,7 @@ import gr.wsol.billablecalls.core.Ops
 import gr.wsol.billablecalls.core.Report
 import gr.wsol.billablecalls.core.Store
 import gr.wsol.billablecalls.core.t
+import gr.wsol.billablecalls.core.topic
 
 /**
  * The card at the end of a call. As a window over the screen (with «display over other apps»), or
@@ -48,7 +49,7 @@ object Card {
         val d = Store.data
         val company = d.company(call.companyId)
         val title = call.label + (company?.name?.let { " · $it" } ?: "")
-        val topic = Ops.withDefaultTopic(call, d.settings).category
+        val topic = Ops.withDefaultTopic(call, d.settings).category?.let(::topic)
         val text = if (company != null) t("Κλήση ${Billing.hms(call.durationSec)} · ${topic ?: "χωρίς θέμα"}. Εταιρική;", "Call ${Billing.hms(call.durationSec)} · ${topic ?: "no topic"}. Business?")
             else t("Κλήση ${Billing.hms(call.durationSec)}. Πάτα για εταιρεία, θέμα και σημείωση.", "Call ${Billing.hms(call.durationSec)}. Tap for company, topic and note.")
         val id = nid(call.id)

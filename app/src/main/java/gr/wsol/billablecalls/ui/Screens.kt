@@ -51,6 +51,7 @@ import gr.wsol.billablecalls.core.Ops
 import gr.wsol.billablecalls.core.Period
 import gr.wsol.billablecalls.core.Store
 import gr.wsol.billablecalls.core.t
+import gr.wsol.billablecalls.core.n
 import gr.wsol.billablecalls.sys.Alarms
 import gr.wsol.billablecalls.sys.CallSync
 import gr.wsol.billablecalls.sys.Drive
@@ -87,15 +88,15 @@ fun TodayScreen(onCall: (Long) -> Unit, onMissed: () -> Unit) {
                 TextButton(onClick = { scope.launch { withContext(Dispatchers.IO) { CallSync.run(ctx, showCard = false) } } }) { Text(t("Ανανέωση", "Refresh")) }
             }
             SectionCard(t("Χρεώσιμος χρόνος: ", "Billable time: ") + Billing.nice(totals.sumOf { it.billableSec }),
-                t("${calls.count { it.business }} εταιρικές κλήσεις από ${calls.size}", "${calls.count { it.business }} business calls of ${calls.size}")) {
+                n(calls.count { it.business }, "εταιρική κλήση", "εταιρικές κλήσεις", "business call", "business calls") + t(" από ${calls.size}", " of ${calls.size}")) {
                 totals.forEach { tt ->
                     Row { Text(tt.company?.name.orEmpty(), Modifier.weight(1f)); Text("${tt.calls} · " + Billing.hms(tt.billableSec), fontWeight = FontWeight.SemiBold) }
                 }
             }
-            if (waiting > 0) SectionCard(t("$waiting αναπάντητες περιμένουν", "$waiting missed calls waiting")) {
+            if (waiting > 0) SectionCard(if (waiting == 1) t("1 αναπάντητη περιμένει", "1 missed call waiting") else t("$waiting αναπάντητες περιμένουν", "$waiting missed calls waiting")) {
                 TextButton(onClick = onMissed) { Text(t("Δες τις", "See them")) }
             }
-            if (unreviewed.isNotEmpty()) SectionCard(t("${unreviewed.size} κλήσεις χωρίς κάρτα", "${unreviewed.size} calls without a card"), t("Πάτα μια κλήση για εταιρεία, θέμα και σημείωση.", "Tap a call for company, topic and note.")) {}
+            if (unreviewed.isNotEmpty()) SectionCard(n(unreviewed.size, "κλήση", "κλήσεις", "call", "calls") + t(" χωρίς κάρτα", " without a card"), t("Πάτα μια κλήση για εταιρεία, θέμα και σημείωση.", "Tap a call for company, topic and note.")) {}
             if (calls.isEmpty()) Muted(t("Καμία κλήση σήμερα ακόμα.", "No calls today yet."), Modifier.padding(16.dp))
         }
         items(calls, key = { it.id }) { c -> CallRow(c, d, false, onClick = { onCall(c.id) }, onLong = { onCall(c.id) }) }
@@ -118,7 +119,7 @@ fun CompaniesScreen(onOpen: (String) -> Unit) {
             item {
                 Title(t("Εταιρείες", "Companies"))
                 OutlinedTextField(q, { q = it }, placeholder = { Text(t("Αναζήτηση", "Search")) }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp))
-                Muted(t("${d.companies.size} εταιρείες · σύνολα του μήνα", "${d.companies.size} companies · this month's totals"), Modifier.padding(16.dp, 6.dp))
+                Muted(n(d.companies.size, "εταιρεία", "εταιρείες", "company", "companies") + t(" · σύνολα του μήνα", " · this month's totals"), Modifier.padding(16.dp, 6.dp))
                 if (d.companies.isEmpty()) Muted(t("Πρόσθεσε εταιρείες με το «+» ή φέρε τη λίστα από τις Ρυθμίσεις → Λίστα πελατών.", "Add companies with «+» or load the list in Settings → Customer list."), Modifier.padding(16.dp))
             }
             items(list, key = { it.id }) { c ->
@@ -208,7 +209,7 @@ fun CompanyScreen(id: String, onCall: (Long) -> Unit, onBack: () -> Unit) {
                 FilterChip(!openOnly, { openOnly = false }, label = { Text(t("Όλες", "All")) })
                 FilterChip(openOnly, { openOnly = true }, label = { Text(t("Ανοιχτές", "Open")) })
             }
-            Muted(t("${calls.size} καταγραφές · χρεώσιμος χρόνος ", "${calls.size} records · billable ") + Billing.nice(calls.sumOf { Billing.seconds(it, d) }) + t(" · ✓ = ολοκληρώθηκε", " · ✓ = completed"), Modifier.padding(16.dp, 4.dp))
+            Muted(n(calls.size, "καταγραφή", "καταγραφές", "record", "records") + t(" · χρεώσιμος χρόνος ", " · billable ") + Billing.nice(calls.sumOf { Billing.seconds(it, d) }) + t(" · ✓ = ολοκληρώθηκε", " · ✓ = completed"), Modifier.padding(16.dp, 4.dp))
         }
         items(calls, key = { it.id }) { cl ->
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -269,7 +270,7 @@ fun ExportDialog(company: Company?, start: Range = Range.MONTH, onDismiss: () ->
                     SwitchRow(t("Μόνο μη τιμολογημένες", "Only not invoiced"), unbilled) { unbilled = it }
                     SwitchRow(t("Σημείωσέ τες «τιμολογήθηκαν»", "Mark them «invoiced»"), mark) { mark = it }
                 }
-                Muted(t("${ids(range.period()).size} εταιρικές κλήσεις", "${ids(range.period()).size} business calls"))
+                Muted(n(ids(range.period()).size, "εταιρική κλήση", "εταιρικές κλήσεις", "business call", "business calls"))
                 if (busy) Muted(t("Ετοιμάζεται…", "Working…"))
             }
         },
